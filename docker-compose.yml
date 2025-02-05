@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: kpok2_app
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/kpok2_db
+      SPRING_DATASOURCE_USERNAME: kpok2
+      SPRING_DATASOURCE_PASSWORD: kpok2
+    ports:
+      - "8080:8080"
+
+  postgres:
+    image: postgres:latest
+    container_name: kpok2_postgres
+    environment:
+      POSTGRES_DB: kpok2_db
+      POSTGRES_USER: kpok2
+      POSTGRES_PASSWORD: kpok2
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
