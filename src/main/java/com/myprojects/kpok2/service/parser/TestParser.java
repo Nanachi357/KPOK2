@@ -1,5 +1,6 @@
 package com.myprojects.kpok2.service.parser;
 
+import com.myprojects.kpok2.config.TestCenterConfig;
 import com.myprojects.kpok2.model.Answer;
 import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.service.TestQuestionService;
@@ -7,8 +8,11 @@ import com.myprojects.kpok2.util.TestParserConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.*;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,10 +22,37 @@ import java.util.List;
 public class TestParser {
     private final WebDriver webDriver;
     private final TestQuestionService testQuestionService;
+    private final TestCenterConfig testCenterConfig;
+
+
+    private void login() {
+        try {
+            log.info("Starting login process");
+            webDriver.get(TestParserConstants.LOGIN_URL);
+
+            WebElement usernameInput = webDriver.findElement(By.cssSelector(TestParserConstants.USERNAME_SELECTOR));
+            WebElement passwordInput = webDriver.findElement(By.cssSelector(TestParserConstants.PASSWORD_SELECTOR));
+            WebElement loginButton = webDriver.findElement(By.cssSelector(TestParserConstants.LOGIN_BUTTON_SELECTOR));
+
+            usernameInput.sendKeys(testCenterConfig.getUsername());
+            passwordInput.sendKeys(testCenterConfig.getPassword());
+            loginButton.click();
+
+            // Wait for login to complete
+            new WebDriverWait(webDriver, Duration.ofSeconds(10))
+                    .until(ExpectedConditions.urlContains("test.testcentr.org.ua"));
+
+            log.info("Successfully logged in");
+        } catch (Exception e) {
+            log.error("Failed to login: ", e);
+            throw new RuntimeException("Login failed: " + e.getMessage());
+        }
+    }
 
     public void parseTest(String url) {
         try {
             log.info("Starting to parse test from URL: {}", url);
+            login();
             webDriver.get(url);
 
             List<WebElement> questionElements = webDriver.findElements(By.cssSelector(TestParserConstants.QUESTION_SELECTOR));

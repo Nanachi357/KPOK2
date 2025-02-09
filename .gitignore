@@ -33,4 +33,5 @@ build/
 .vscode/
 
 ## Application specific ###
+/docs/TODO.md
 application-local.properties
