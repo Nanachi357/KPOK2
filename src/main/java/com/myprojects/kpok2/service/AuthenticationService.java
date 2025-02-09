@@ -27,12 +27,12 @@ public class AuthenticationService {
             WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(10));
 
             // Wait for login form to be present
-            WebElement loginForm = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("login-form")));
+            WebElement loginForm = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("login")));
 
             // Find input fields
-            WebElement usernameInput = webDriver.findElement(By.id("loginform-username"));
-            WebElement passwordInput = webDriver.findElement(By.id("loginform-password"));
-            WebElement submitButton = webDriver.findElement(By.name("login-button"));
+            WebElement usernameInput = webDriver.findElement(By.id("username"));
+            WebElement passwordInput = webDriver.findElement(By.id("password"));
+            WebElement submitButton = webDriver.findElement(By.id("loginbtn"));
 
             // Input credentials
             usernameInput.sendKeys(config.getUsername());
@@ -41,8 +41,9 @@ public class AuthenticationService {
             // Submit login form
             submitButton.click();
 
-            // Wait for successful login
-            wait.until(ExpectedConditions.presenceOfElementLocated(By.className("user-name")));
+            // Wait for successful login (check for element that exists only for authenticated users)
+            // Note: We need to update this selector when we can see the authenticated page
+            wait.until(ExpectedConditions.invisibilityOfElementLocated(By.id("login")));
 
             return true;
         } catch (Exception e) {

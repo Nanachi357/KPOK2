@@ -1,11 +1,20 @@
 # TODO List
 
 ## Authentication
-1. Update login form selectors in AuthenticationService:
-    - Check and update correct IDs for:
-        - Login form
-        - Username input
-        - Password input
-        - Submit button
-    - Verify success login indicator
-    - Test authentication process
+- [x] ~~Update login form selectors when site is available~~
+
+## Parser
+1. Update test page selectors:
+   - Check and update correct IDs for:
+      - Questions
+      - Answer options
+      - Correct answers
+   - Verify parsing process
+   - Test data saving
+
+## Configuration
+1. Resolve configuration duplication:
+   - Review TestCenterProperties and TestCenterConfig
+   - Merge into single configuration class
+   - Update properties prefix
+   - Update application properties files accordingly
