@@ -2,24 +2,52 @@ package com.myprojects.kpok2.service;
 
 import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.repository.TestQuestionRepository;
+import com.myprojects.kpok2.service.mapper.TestQuestionMapper;
+import com.myprojects.kpok2.service.parser.ParsedTestQuestionDto;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TestQuestionService {
-    private final TestQuestionRepository testQuestionRepository;
+    private final TestQuestionRepository repository;
+    private final TestQuestionMapper mapper;
 
     @Transactional
-    public TestQuestion saveQuestion(TestQuestion question) {
-        return testQuestionRepository.save(question);
+    public List<TestQuestion> saveUniqueQuestions(List<ParsedTestQuestionDto> questions, String sourceUrl) {
+        List<TestQuestion> savedQuestions = new ArrayList<>();
+
+        for (ParsedTestQuestionDto dto : questions) {
+            TestQuestion entity = mapper.toEntity(dto, sourceUrl);
+
+            if (!repository.existsByQuestionHash(entity.getQuestionHash())) {
+                savedQuestions.add(repository.save(entity));
+                log.debug("Saved new question: {}", entity.getQuestionText());
+            } else {
+                log.debug("Skipped duplicate question: {}", entity.getQuestionText());
+            }
+        }
+
+        log.info("Saved {} new questions from {}", savedQuestions.size(), sourceUrl);
+        return savedQuestions;
     }
 
-    @Transactional(readOnly = true)
+    public List<TestQuestion> searchQuestions(String searchText) {
+        return repository.searchByAnyFragment(searchText);
+    }
+
     public List<TestQuestion> getAllQuestions() {
-        return testQuestionRepository.findAll();
+        return repository.findAll();
+    }
+
+    public Optional<TestQuestion> getQuestionById(Long id) {
+        return repository.findById(id);
     }
 }

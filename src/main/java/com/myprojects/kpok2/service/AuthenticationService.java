@@ -1,12 +1,14 @@
 package com.myprojects.kpok2.service;
 
 import com.myprojects.kpok2.config.TestCenterConfig;
+import com.myprojects.kpok2.util.TestParserConstants;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.stereotype.Service;
+
 
 import java.time.Duration;
 
@@ -26,19 +28,14 @@ public class AuthenticationService {
 
             WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(10));
 
-            // Wait for login form to be present
-            WebElement loginForm = wait.until(ExpectedConditions.presenceOfElementLocated(By.id("login-form")));
+            // Find and fill login form elements
+            WebElement usernameInput = webDriver.findElement(By.cssSelector(TestParserConstants.USERNAME_SELECTOR));
+            WebElement passwordInput = webDriver.findElement(By.cssSelector(TestParserConstants.PASSWORD_SELECTOR));
+            WebElement submitButton = webDriver.findElement(By.cssSelector(TestParserConstants.LOGIN_BUTTON_SELECTOR));
 
-            // Find input fields
-            WebElement usernameInput = webDriver.findElement(By.id("loginform-username"));
-            WebElement passwordInput = webDriver.findElement(By.id("loginform-password"));
-            WebElement submitButton = webDriver.findElement(By.name("login-button"));
-
-            // Input credentials
+            // Input credentials and submit
             usernameInput.sendKeys(config.getUsername());
             passwordInput.sendKeys(config.getPassword());
-
-            // Submit login form
             submitButton.click();
 
             // Wait for successful login
