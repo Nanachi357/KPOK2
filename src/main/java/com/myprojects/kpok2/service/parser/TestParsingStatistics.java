@@ -1,8 +1,11 @@
 package com.myprojects.kpok2.service.parser;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Component
 @Slf4j
 public class TestParsingStatistics {
     private final AtomicInteger processedCount;

@@ -1,18 +1,17 @@
 package com.myprojects.kpok2.service.parser;
 
 import com.google.common.collect.Lists;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
+@Component
 @Slf4j
-@RequiredArgsConstructor
 public class TestParsingExecutor {
     private static final int THREAD_POOL_SIZE = 10;
     private static final int BATCH_SIZE = 100;
@@ -37,7 +36,7 @@ public class TestParsingExecutor {
         for (List<String> batch : Lists.partition(testUrls, BATCH_SIZE)) {
             List<CompletableFuture<TestParsingResultDto>> futures = batch.stream()
                     .map(this::parseTestAsync)
-                    .collect(Collectors.toList());
+                    .toList();
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                     .orTimeout(TIMEOUT.toSeconds(), TimeUnit.SECONDS)
