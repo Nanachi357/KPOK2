@@ -1,5 +1,9 @@
 package com.myprojects.kpok2.service.parser;
 
+import com.myprojects.kpok2.exception.parser.ParsingErrorType;
+import com.myprojects.kpok2.exception.parser.ParsingException;
+import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
+import com.myprojects.kpok2.util.TestParserConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -8,69 +12,87 @@ import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.util.ArrayList;
+import java.net.SocketTimeoutException;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
-@Component
 @Slf4j
+@Component
 public class TestPageParser {
-    private static final Duration TIMEOUT = Duration.ofSeconds(30);
+    private static final int TIMEOUT = 10000; // 10 seconds
 
-    public List<ParsedTestQuestionDto> parseAllPages(String initialUrl) {
-        List<ParsedTestQuestionDto> allQuestions = new ArrayList<>();
-        String currentUrl = initialUrl;
-        int[] expectedRanges = {50, 100, 150};
+    public List<ParsedTestQuestionDto> parse(String url) {
+        log.debug("Starting parsing URL: {}", url);
+        Document doc = getPage(url);
+        return parseTestPage(doc);
+    }
 
-        for (int i = 0; i < expectedRanges.length; i++) {
-            Document doc = getPage(currentUrl);
-            List<ParsedTestQuestionDto> pageQuestions = parseTestPage(doc, expectedRanges[i]);
-            allQuestions.addAll(pageQuestions);
+    private Document getPage(String url) {
+        try {
+            return Jsoup.connect(url)
+                    .timeout(TIMEOUT)
+                    .get();
+        } catch (SocketTimeoutException e) {
+            log.error("Timeout while accessing URL: {}", url, e);
+            throw new ParsingException(
+                    ParsingErrorType.TIMEOUT_ERROR,
+                    String.format("Timeout accessing page %s", url),
+                    e
+            );
+        } catch (IOException e) {
+            log.error("Failed to access URL: {}", url, e);
+            throw new ParsingException(
+                    ParsingErrorType.CONNECTION_ERROR,
+                    String.format("Failed to access page %s: %s", url, e.getMessage()),
+                    e
+            );
+        }
+    }
 
-            if (i < expectedRanges.length - 1) {
-                currentUrl = getNextPageUrl(doc);
-                if (currentUrl == null) {
-                    throw new TestParsingException("Next page link not found");
+    private List<ParsedTestQuestionDto> parseTestPage(Document doc) {
+        try {
+            Elements questionElements = doc.select(".question-container");
+            if (questionElements.isEmpty()) {
+                log.warn("No questions found in document");
+                throw new ParsingException(
+                        ParsingErrorType.INVALID_PAGE_STRUCTURE,
+                        "No questions found on the page"
+                );
+            }
+
+            List<ParsedTestQuestionDto> questions = new ArrayList<>();
+            for (Element questionElement : questionElements) {
+                try {
+                    questions.add(parseQuestion(questionElement));
+                } catch (Exception e) {
+                    log.error("Failed to parse question element", e);
+                    throw new ParsingException(
+                            ParsingErrorType.INVALID_CONTENT,
+                            String.format("Failed to parse question: %s", e.getMessage()),
+                            e
+                    );
                 }
             }
-        }
+            log.debug("Successfully parsed {} questions", questions.size());
+            return questions;
 
-        return allQuestions;
+        } catch (ParsingException e) {
+            throw e; // rethrow parsing exceptions
+        } catch (Exception e) {
+            log.error("Unexpected error during parsing", e);
+            throw new ParsingException(
+                    ParsingErrorType.UNEXPECTED_ERROR,
+                    "Unexpected error during page parsing: " + e.getMessage(),
+                    e
+            );
+        }
     }
 
-    public List<ParsedTestQuestionDto> parseTestPage(Document doc, int expectedQuestionsCount) {
-        Elements questionDivs = doc.select("div.que.multichoice.deferredfeedback");
-        List<ParsedTestQuestionDto> questions = new ArrayList<>();
-
-        for (Element questionDiv : questionDivs) {
-            try {
-                questions.add(parseQuestion(questionDiv));
-            } catch (Exception e) {
-                throw new TestParsingException("Failed to parse question", e);
-            }
-        }
-
-        if (questions.size() != expectedQuestionsCount) {
-            log.warn("Found {} questions, expected {}",
-                    questions.size(), expectedQuestionsCount);
-        }
-
-        return questions;
-    }
-
-    public ParsedTestQuestionDto parseQuestion(Element questionDiv) {
-        String questionText = questionDiv.select("div.qtext").text();
-
-        List<String> answers = questionDiv.select("div.answer div.flex-fill")
-                .stream()
-                .map(Element::text)
-                .collect(Collectors.toList());
-
-        String correctAnswer = questionDiv.select("div.rightanswer")
-                .text()
-                .replace("Правильна відповідь:", "")
-                .trim();
+    private ParsedTestQuestionDto parseQuestion(Element questionElement) {
+        String questionText = extractQuestionText(questionElement);
+        List<String> answers = extractAnswers(questionElement);
+        String correctAnswer = extractCorrectAnswer(questionElement);
 
         return ParsedTestQuestionDto.builder()
                 .questionText(questionText)
@@ -79,18 +101,50 @@ public class TestPageParser {
                 .build();
     }
 
-    public String getNextPageUrl(Document doc) {
-        Element nextLink = doc.select("a.mod_quiz-next-nav").first();
-        return nextLink != null ? nextLink.attr("href") : null;
+    private String extractQuestionText(Element questionElement) {
+        Element questionTextElement = questionElement.selectFirst(TestParserConstants.QUESTION_SELECTOR);
+        if (questionTextElement == null) {
+            throw new ParsingException(
+                    ParsingErrorType.MISSING_ELEMENT,
+                    "Question text element not found"
+            );
+        }
+        return questionTextElement.text().trim();
     }
 
-    private Document getPage(String url) {
-        try {
-            return Jsoup.connect(url)
-                    .timeout((int) TIMEOUT.toMillis())
-                    .get();
-        } catch (IOException e) {
-            throw new TestParsingException("Failed to fetch page: " + url, e);
+    private List<String> extractAnswers(Element questionElement) {
+        Elements answerElements = questionElement.select(TestParserConstants.ANSWERS_CONTAINER_SELECTOR);
+        if (answerElements.isEmpty()) {
+            throw new ParsingException(
+                    ParsingErrorType.MISSING_ELEMENT,
+                    "No answers found for question"
+            );
         }
+
+        return answerElements.stream()
+                .map(this::extractSingleAnswer)
+                .collect(Collectors.toList());
+    }
+
+    private String extractSingleAnswer(Element answerElement) {
+        Element textElement = answerElement.selectFirst(TestParserConstants.ANSWER_TEXT_SELECTOR);
+        if (textElement == null) {
+            throw new ParsingException(
+                    ParsingErrorType.MISSING_ELEMENT,
+                    "Answer text element not found"
+            );
+        }
+        return textElement.text().trim();
+    }
+
+    private String extractCorrectAnswer(Element questionElement) {
+        Element correctAnswerElement = questionElement.selectFirst(TestParserConstants.CORRECT_ANSWER_SELECTOR);
+        if (correctAnswerElement == null) {
+            throw new ParsingException(
+                    ParsingErrorType.MISSING_ELEMENT,
+                    "Correct answer element not found"
+            );
+        }
+        return correctAnswerElement.text().trim();
     }
 }

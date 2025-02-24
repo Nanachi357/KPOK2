@@ -3,7 +3,7 @@ package com.myprojects.kpok2.service;
 import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.repository.TestQuestionRepository;
 import com.myprojects.kpok2.service.mapper.TestQuestionMapper;
-import com.myprojects.kpok2.service.parser.ParsedTestQuestionDto;
+import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

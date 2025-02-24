@@ -1,7 +1,7 @@
 package com.myprojects.kpok2.service.mapper;
 
 import com.myprojects.kpok2.model.TestQuestion;
-import com.myprojects.kpok2.service.parser.ParsedTestQuestionDto;
+import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;

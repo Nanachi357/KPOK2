@@ -1,4 +1,4 @@
-package com.myprojects.kpok2.service.parser;
+package com.myprojects.kpok2.model.dto;
 
 import lombok.Data;
 import lombok.Builder;

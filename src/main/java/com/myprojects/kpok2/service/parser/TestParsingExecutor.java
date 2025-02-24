@@ -1,6 +1,8 @@
 package com.myprojects.kpok2.service.parser;
 
 import com.google.common.collect.Lists;
+import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
+import com.myprojects.kpok2.model.dto.TestParsingResultDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -75,7 +77,7 @@ public class TestParsingExecutor {
 
     private TestParsingResultDto parseTestWithRetry(String url, int attempt) {
         try {
-            List<ParsedTestQuestionDto> questions = pageParser.parseAllPages(url);
+            List<ParsedTestQuestionDto> questions = pageParser.parse(url);
             return TestParsingResultDto.builder()
                     .testUrl(url)
                     .status(ParsingStatus.SUCCESS)

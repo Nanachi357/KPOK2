@@ -1,5 +1,6 @@
 package com.myprojects.kpok2.service.parser;
 
+import com.myprojects.kpok2.model.dto.TestParsingResultDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
