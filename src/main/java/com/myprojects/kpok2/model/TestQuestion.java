@@ -1,19 +1,10 @@
 package com.myprojects.kpok2.model;
 
-import jakarta.persistence.Id;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import jakarta.persistence.Column;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.ElementCollection;
-import jakarta.persistence.CollectionTable;
-import jakarta.persistence.JoinColumn;
-
-import lombok.Data;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,6 +23,9 @@ public class TestQuestion {
     @Column(columnDefinition = "TEXT")
     private String questionText;
 
+    @Column(columnDefinition = "TEXT")
+    private String normalizedText;
+
     @ElementCollection
     @CollectionTable(
             name = "question_answers",
@@ -41,11 +35,11 @@ public class TestQuestion {
     private List<String> possibleAnswers;
 
     private String correctAnswer;
+    private String normalizedCorrectAnswer;
 
     @Column(unique = true)
     private String questionHash;
 
     private LocalDateTime parsedAt;
-
     private String sourceUrl;
 }

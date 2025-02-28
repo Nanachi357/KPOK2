@@ -15,16 +15,21 @@ import java.util.HexFormat;
 public interface TestQuestionMapper {
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "questionHash", source = "questionText", qualifiedByName = "generateHash")
+    @Mapping(target = "questionHash", source = "dto.normalizedText", qualifiedByName = "generateHash")
     @Mapping(target = "parsedAt", expression = "java(LocalDateTime.now())")
-    @Mapping(target = "possibleAnswers", source = "answers")
+    @Mapping(target = "possibleAnswers", source = "dto.answers")
+    @Mapping(target = "questionText", source = "dto.questionText")
+    @Mapping(target = "normalizedText", source = "dto.normalizedText")
+    @Mapping(target = "correctAnswer", source = "dto.correctAnswer")
+    @Mapping(target = "normalizedCorrectAnswer", source = "dto.normalizedCorrectAnswer")
+    @Mapping(target = "sourceUrl", source = "sourceUrl")
     TestQuestion toEntity(ParsedTestQuestionDto dto, String sourceUrl);
 
     @Named("generateHash")
-    default String generateHash(String questionText) {
+    default String generateHash(String normalizedText) {
         try {
             MessageDigest digest = MessageDigest.getInstance("MD5");
-            byte[] hash = digest.digest(questionText.getBytes());
+            byte[] hash = digest.digest(normalizedText.getBytes());
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Failed to generate hash", e);

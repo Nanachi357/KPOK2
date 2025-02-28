@@ -10,6 +10,7 @@ public enum ParsingErrorType {
     INVALID_PAGE_STRUCTURE,
     MISSING_ELEMENT,
     INVALID_CONTENT,
+    NO_QUESTIONS,
 
     // General errors
     UNEXPECTED_ERROR

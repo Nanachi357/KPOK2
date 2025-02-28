@@ -18,14 +18,15 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class TestQuestionService {
     private final TestQuestionRepository repository;
-    private final TestQuestionMapper mapper;
+    private final TestQuestionMapper testQuestionMapper;
 
     @Transactional
+    @SuppressWarnings("unused")
     public List<TestQuestion> saveUniqueQuestions(List<ParsedTestQuestionDto> questions, String sourceUrl) {
         List<TestQuestion> savedQuestions = new ArrayList<>();
 
         for (ParsedTestQuestionDto dto : questions) {
-            TestQuestion entity = mapper.toEntity(dto, sourceUrl);
+            TestQuestion entity = testQuestionMapper.toEntity(dto, sourceUrl);
 
             if (!repository.existsByQuestionHash(entity.getQuestionHash())) {
                 savedQuestions.add(repository.save(entity));
@@ -47,6 +48,7 @@ public class TestQuestionService {
         return repository.findAll();
     }
 
+    @SuppressWarnings("unused")
     public Optional<TestQuestion> getQuestionById(Long id) {
         return repository.findById(id);
     }

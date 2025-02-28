@@ -8,6 +8,8 @@ import java.util.List;
 @Builder
 public class ParsedTestQuestionDto {
     private String questionText;
+    private String normalizedText;
     private List<String> answers;
     private String correctAnswer;
+    private String normalizedCorrectAnswer;
 }

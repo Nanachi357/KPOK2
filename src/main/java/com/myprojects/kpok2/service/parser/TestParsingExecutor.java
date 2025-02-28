@@ -1,78 +1,42 @@
 package com.myprojects.kpok2.service.parser;
 
-import com.google.common.collect.Lists;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import com.myprojects.kpok2.model.dto.TestParsingResultDto;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
-@Component
 @Slf4j
+@Service
 public class TestParsingExecutor {
-    private static final int THREAD_POOL_SIZE = 10;
-    private static final int BATCH_SIZE = 100;
-    private static final int MAX_RETRY_ATTEMPTS = 3;
-    private static final Duration TIMEOUT = Duration.ofSeconds(30);
-
-    private final ExecutorService executorService;
-    private final Queue<TestParsingResultDto> failedQueue;
+    private final Executor taskExecutor;
     private final TestPageParser pageParser;
     private final TestParsingStatistics statistics;
+    private final ConcurrentLinkedQueue<TestParsingResultDto> failedQueue;
+    private static final int MAX_RETRY_ATTEMPTS = 3;
 
-    public TestParsingExecutor(TestPageParser pageParser, TestParsingStatistics statistics) {
-        this.executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
-        this.failedQueue = new ConcurrentLinkedQueue<>();
+    public TestParsingExecutor(
+            Executor taskExecutor,
+            TestPageParser pageParser,
+            TestParsingStatistics statistics
+    ) {
+        this.taskExecutor = taskExecutor;
         this.pageParser = pageParser;
         this.statistics = statistics;
+        this.failedQueue = new ConcurrentLinkedQueue<>();
     }
 
-    public List<TestParsingResultDto> executeInBatches(List<String> testUrls) {
-        List<TestParsingResultDto> results = new ArrayList<>();
-
-        for (List<String> batch : Lists.partition(testUrls, BATCH_SIZE)) {
-            List<CompletableFuture<TestParsingResultDto>> futures = batch.stream()
-                    .map(this::parseTestAsync)
-                    .toList();
-
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                    .orTimeout(TIMEOUT.toSeconds(), TimeUnit.SECONDS)
-                    .join();
-
-            futures.stream()
-                    .map(CompletableFuture::join)
-                    .forEach(result -> {
-                        results.add(result);
-                        statistics.updateStats(result);
-                        if (result.getStatus() == ParsingStatus.FAILED) {
-                            failedQueue.offer(result);
-                        }
-                    });
-
-            statistics.logProgress();
-        }
-
-        return results;
-    }
-
-    private CompletableFuture<TestParsingResultDto> parseTestAsync(String url) {
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                return parseTestWithRetry(url, 1);
-            } catch (Exception e) {
-                log.error("Failed to parse test {}: {}", url, e.getMessage());
-                return TestParsingResultDto.builder()
-                        .testUrl(url)
-                        .status(ParsingStatus.FAILED)
-                        .errorMessage(e.getMessage())
-                        .build();
-            }
-        }, executorService);
+    public List<TestParsingResultDto> executeInBatches(List<String> urls) {
+        return urls.stream()
+                .map(url -> CompletableFuture.supplyAsync(
+                        () -> parseTestWithRetry(url, 1),
+                        taskExecutor
+                ))
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList());
     }
 
     private TestParsingResultDto parseTestWithRetry(String url, int attempt) {
@@ -107,17 +71,6 @@ public class TestParsingExecutor {
                     log.error("Final retry failed for {}", failed.getTestUrl());
                 }
             }
-        }
-    }
-
-    public void shutdown() {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(1, TimeUnit.MINUTES)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executorService.shutdownNow();
         }
     }
 }
