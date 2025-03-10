@@ -147,7 +147,7 @@ public class DockerNavigationTester implements CommandLineRunner {
             // Step 5: Save questions to database
             if (!allQuestions.isEmpty()) {
                 log.info("Saving {} questions to database...", allQuestions.size());
-                testQuestionService.saveUniqueQuestions(allQuestions, testUrl);
+                testQuestionService.saveUniqueQuestions(allQuestions);
             } else {
                 log.warn("No questions found to save.");
             }

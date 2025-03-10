@@ -21,12 +21,11 @@ public class TestQuestionService {
     private final TestQuestionMapper testQuestionMapper;
 
     @Transactional
-    @SuppressWarnings("unused")
-    public List<TestQuestion> saveUniqueQuestions(List<ParsedTestQuestionDto> questions, String sourceUrl) {
+    public List<TestQuestion> saveUniqueQuestions(List<ParsedTestQuestionDto> questions) {
         List<TestQuestion> savedQuestions = new ArrayList<>();
 
         for (ParsedTestQuestionDto dto : questions) {
-            TestQuestion entity = testQuestionMapper.toEntity(dto, sourceUrl);
+            TestQuestion entity = testQuestionMapper.toEntity(dto);
 
             if (!repository.existsByQuestionHash(entity.getQuestionHash())) {
                 savedQuestions.add(repository.save(entity));
@@ -36,7 +35,7 @@ public class TestQuestionService {
             }
         }
 
-        log.info("Saved {} new questions from {}", savedQuestions.size(), sourceUrl);
+        log.info("Saved {} new questions", savedQuestions.size());
         return savedQuestions;
     }
 

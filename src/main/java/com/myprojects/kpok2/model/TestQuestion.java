@@ -5,9 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 @Entity
@@ -26,13 +27,9 @@ public class TestQuestion {
     @Column(columnDefinition = "TEXT")
     private String normalizedText;
 
-    @ElementCollection
-    @CollectionTable(
-            name = "question_answers",
-            joinColumns = @JoinColumn(name = "question_id")
-    )
-    @Column(name = "answer")
-    private List<String> possibleAnswers;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private String possibleAnswersJson;
 
     private String correctAnswer;
     private String normalizedCorrectAnswer;
@@ -41,5 +38,4 @@ public class TestQuestion {
     private String questionHash;
 
     private LocalDateTime parsedAt;
-    private String sourceUrl;
 }
