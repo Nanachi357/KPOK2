@@ -13,5 +13,6 @@ public enum ParsingErrorType {
     NO_QUESTIONS,
 
     // General errors
-    UNEXPECTED_ERROR
+    UNEXPECTED_ERROR,
+    PROCESSING_ERROR
 }

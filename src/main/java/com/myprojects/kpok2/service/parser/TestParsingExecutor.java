@@ -41,11 +41,12 @@ public class TestParsingExecutor {
 
     private TestParsingResultDto parseTestWithRetry(String url, int attempt) {
         try {
-            List<ParsedTestQuestionDto> questions = pageParser.parse(url);
+            pageParser.parse(url);
+            
             return TestParsingResultDto.builder()
                     .testUrl(url)
                     .status(ParsingStatus.SUCCESS)
-                    .questions(questions)
+                    .questions(List.of())
                     .attemptCount(attempt)
                     .build();
         } catch (Exception e) {
