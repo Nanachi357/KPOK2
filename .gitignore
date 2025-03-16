@@ -35,3 +35,6 @@ build/
 ## Application specific ###
 /docs/TODO.md
 application-local.properties
+
+### Local mock data ###
+/mock-data/

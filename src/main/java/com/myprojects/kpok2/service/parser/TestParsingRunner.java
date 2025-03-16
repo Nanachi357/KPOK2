@@ -40,6 +40,15 @@ public class TestParsingRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        // Temporarily disable TestParsingRunner during multi-threaded navigation testing
+        // TODO: Set to true when parser integration is needed
+        boolean parserEnabled = false;
+        
+        if (!parserEnabled) {
+            log.info("TestParsingRunner is disabled. Skipping execution.");
+            return;
+        }
+        
         // List of URLs to process
         List<String> urlsToProcess = new ArrayList<>(TEST_URLS);
         

@@ -1,6 +1,6 @@
 package com.myprojects.kpok2.service;
 
-import com.myprojects.kpok2.config.TestCenterConfig;
+import com.myprojects.kpok2.config.TestCenterProperties;
 import com.myprojects.kpok2.util.TestParserConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +20,7 @@ import java.time.Duration;
 public class AuthenticationService {
 
     private final WebDriver webDriver;
-    private final TestCenterConfig config;
+    private final TestCenterProperties config;
 
     /**
      * Attempt to log in to the test center if not already logged in
@@ -37,8 +37,8 @@ public class AuthenticationService {
             }
             
             log.info("Not logged in. Starting authentication process...");
-            log.debug("Opening login page: {}", config.getLoginUrl());
-            webDriver.get(config.getLoginUrl());
+            log.debug("Opening login page: {}", TestParserConstants.LOGIN_URL);
+            webDriver.get(TestParserConstants.LOGIN_URL);
 
             WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(10));
 
@@ -71,11 +71,17 @@ public class AuthenticationService {
             WebElement submitButton = webDriver.findElement(By.cssSelector(TestParserConstants.LOGIN_BUTTON_SELECTOR));
 
             log.debug("Found all form elements, proceeding with login");
-            log.debug("Entering username: {}", config.getUsername());
-            usernameInput.sendKeys(config.getUsername());
+            // Use first enabled account or fall back to legacy username/password
+            String username = !config.getEnabledAccounts().isEmpty() ? 
+                config.getEnabledAccounts().get(0).getUsername() : config.getUsername();
+            String password = !config.getEnabledAccounts().isEmpty() ? 
+                config.getEnabledAccounts().get(0).getPassword() : config.getPassword();
+                
+            log.debug("Entering username: {}", username);
+            usernameInput.sendKeys(username);
 
             log.debug("Entering password: [MASKED]");
-            passwordInput.sendKeys(config.getPassword());
+            passwordInput.sendKeys(password);
 
             log.debug("Clicking login button");
             submitButton.click();

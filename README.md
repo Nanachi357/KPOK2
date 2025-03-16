@@ -121,3 +121,60 @@ mvn spring-boot:run
 - Adding support for images in questions
 - Expanding search capabilities
 - Optimizing parsing performance
+
+## Local Development Configuration
+
+### Setting up application-local.properties
+
+To run the application locally, you need to create an `application-local.properties` file in the `src/main/resources` directory. This file is excluded from Git to keep sensitive information secure.
+
+Use the following template as a reference:
+
+```properties
+# Local Development Configuration
+# This file is excluded from Git and should contain your local environment settings
+
+# Database Configuration (if needed)
+# spring.datasource.url=jdbc:postgresql://localhost:5432/kpok2_db
+# spring.datasource.username=your_username
+# spring.datasource.password=your_password
+
+# Logging Configuration
+logging.level.com.myprojects.kpok2=DEBUG
+
+# TestCenter Account Configuration
+# Format: testcenter.accounts[index].username=username
+#         testcenter.accounts[index].password=password
+#         testcenter.accounts[index].enabled=true/false
+
+# Account 1
+testcenter.accounts[0].username=your_username1
+testcenter.accounts[0].password=your_password1
+testcenter.accounts[0].enabled=true
+
+# Account 2
+testcenter.accounts[1].username=your_username2
+testcenter.accounts[1].password=your_password2
+testcenter.accounts[1].enabled=true
+
+# You can add more accounts as needed
+# testcenter.accounts[2].username=your_username3
+# testcenter.accounts[2].password=your_password3
+# testcenter.accounts[2].enabled=false
+
+# Parallel processing settings
+testcenter.navigation.max-threads=2
+testcenter.navigation.thread-timeout-seconds=10
+```
+
+#### Configuration Options
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `testcenter.accounts[n].username` | Username for the TestCenter account | None (required) |
+| `testcenter.accounts[n].password` | Password for the TestCenter account | None (required) |
+| `testcenter.accounts[n].enabled` | Whether this account should be used | false |
+| `testcenter.navigation.max-threads` | Number of parallel browser sessions | 2 |
+| `testcenter.navigation.thread-timeout-seconds` | How long to keep browser open after completion | 10 |
+
+**Note:** You need at least one enabled account for the application to work properly.
