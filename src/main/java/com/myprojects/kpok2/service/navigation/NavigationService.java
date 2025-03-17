@@ -270,6 +270,29 @@ public class NavigationService {
                 log.info("{}: FINAL RESULT URL for account {}: {}", 
                         threadName, username, session.getCurrentUrl());
                 
+                // Generate and log URLs for all result pages
+                if (session.hasActiveAttempt()) {
+                    String baseResultUrl = "https://test.testcentr.org.ua/mod/quiz/review.php?attempt=" + 
+                                          session.getAttemptId() + "&cmid=109";
+                    String page1Url = baseResultUrl + "&page=1";
+                    String page2Url = baseResultUrl + "&page=2";
+                    
+                    // Create a list of result page URLs
+                    List<String> resultPageUrls = java.util.List.of(baseResultUrl, page1Url, page2Url);
+                    
+                    // Store URLs in session
+                    session.setResultPageUrls(resultPageUrls);
+                    
+                    // Log all result page URLs
+                    log.info("{}: Result page URLs for account {}:", threadName, username);
+                    log.info("{}: Base Result URL: {}", threadName, baseResultUrl);
+                    log.info("{}: Page 1 URL: {}", threadName, page1Url);
+                    log.info("{}: Page 2 URL: {}", threadName, page2Url);
+                } else {
+                    log.warn("{}: Cannot generate result page URLs - no attempt ID available for account: {}", 
+                            threadName, username);
+                }
+                
                 log.info("{}: Successfully completed navigation for account: {}", threadName, username);
                 
                 // Keep the browser open for demonstration purposes

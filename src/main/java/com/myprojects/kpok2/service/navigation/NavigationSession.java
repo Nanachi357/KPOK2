@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriver;
+import java.util.List;
 
 /**
  * Represents a navigation session with its associated resources.
@@ -25,6 +26,9 @@ public class NavigationSession implements AutoCloseable {
     @Getter
     @Setter
     private String attemptId;
+    
+    @Getter
+    private List<String> resultPageUrls;
     
     private final WebDriverFactory webDriverFactory;
     private final AccountManager accountManager;
@@ -66,6 +70,16 @@ public class NavigationSession implements AutoCloseable {
      */
     public boolean hasActiveAttempt() {
         return attemptId != null && !attemptId.isEmpty();
+    }
+    
+    /**
+     * Set the URLs for all result pages
+     * 
+     * @param resultPageUrls List of URLs for result pages
+     */
+    public void setResultPageUrls(List<String> resultPageUrls) {
+        this.resultPageUrls = resultPageUrls;
+        log.debug("Stored {} result page URLs", resultPageUrls.size());
     }
     
     /**
