@@ -1,8 +1,9 @@
 package com.myprojects.kpok2.service.navigation;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
+import com.myprojects.kpok2.service.parser.TestParsingRunner;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.openqa.selenium.WebDriver;
 
@@ -15,38 +16,39 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Service for managing navigation processes.
- * Supports multi-threading for parallel navigation sessions.
+ * Service for managing navigation processes with multi-threading support.
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class NavigationService {
-
-    private final NavigationSessionFactory sessionFactory;
-    private final TestCenterNavigator navigator;
     private final TestCenterProperties properties;
+    private final TestCenterNavigator navigator;
+    private final NavigationSessionFactory sessionFactory;
+    private final TestParsingRunner testParsingRunner;
     
     private ExecutorService executorService;
     private final List<Future<?>> runningTasks = new ArrayList<>();
-
-    @Autowired
-    public NavigationService(
-            NavigationSessionFactory sessionFactory,
-            TestCenterNavigator navigator,
-            TestCenterProperties properties) {
-        this.sessionFactory = sessionFactory;
-        this.navigator = navigator;
-        this.properties = properties;
-    }
     
     /**
-     * Initialize the navigation process, creating sessions for all accounts.
-     * This method will authenticate each account and navigate to the test page.
-     * 
-     * @return true if at least one session was successfully initialized
+     * Start navigation process with the configured number of threads.
+     * @return true if navigation has started successfully
      */
-    public boolean initializeNavigation() {
+    public boolean startNavigation() {
         int threadCount = properties.getNavigation().getMaxThreads();
+        
+        // Validate thread count
+        if (threadCount <= 0) {
+            log.error("Invalid thread count: {}", threadCount);
+            return false;
+        }
+        
+        // Check if navigation is already running
+        if (executorService != null && !executorService.isShutdown()) {
+            log.warn("Navigation is already running");
+            return false;
+        }
+        
         log.info("Initializing navigation with {} threads", threadCount);
         
         // Create thread pool
@@ -288,6 +290,25 @@ public class NavigationService {
                     log.info("{}: Base Result URL: {}", threadName, baseResultUrl);
                     log.info("{}: Page 1 URL: {}", threadName, page1Url);
                     log.info("{}: Page 2 URL: {}", threadName, page2Url);
+                    
+                    // Parse the result pages using the same WebDriver session
+                    log.info("{}: Starting parsing of result pages for account {}", threadName, username);
+                    
+                    // Process each result page URL
+                    for (String resultPageUrl : resultPageUrls) {
+                        try {
+                            log.info("{}: Processing result page URL: {}", threadName, resultPageUrl);
+                            boolean parseSuccess = testParsingRunner.processTestUrl(resultPageUrl, session);
+                            if (parseSuccess) {
+                                log.info("{}: Successfully parsed result page: {}", threadName, resultPageUrl);
+                            } else {
+                                log.warn("{}: Failed to parse result page: {}", threadName, resultPageUrl);
+                            }
+                        } catch (Exception e) {
+                            log.error("{}: Error during parsing of result page {}: {}", 
+                                    threadName, resultPageUrl, e.getMessage(), e);
+                        }
+                    }
                 } else {
                     log.warn("{}: Cannot generate result page URLs - no attempt ID available for account: {}", 
                             threadName, username);

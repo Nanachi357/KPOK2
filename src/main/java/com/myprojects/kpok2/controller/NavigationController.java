@@ -37,7 +37,7 @@ public class NavigationController {
         log.info("Received request to start navigation");
         
         try {
-            boolean success = navigationService.initializeNavigation();
+            boolean success = navigationService.startNavigation();
             
             if (success) {
                 return ResponseEntity.ok("Navigation process started successfully");

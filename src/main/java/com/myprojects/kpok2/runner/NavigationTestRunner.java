@@ -2,6 +2,7 @@ package com.myprojects.kpok2.runner;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
 import com.myprojects.kpok2.service.navigation.*;
+import com.myprojects.kpok2.service.parser.TestParsingRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -23,6 +24,9 @@ public class NavigationTestRunner implements CommandLineRunner {
     
     @Autowired
     private TestCenterProperties properties;
+    
+    @Autowired
+    private TestParsingRunner testParsingRunner;
 
     @Override
     public void run(String... args) throws Exception {
@@ -30,11 +34,16 @@ public class NavigationTestRunner implements CommandLineRunner {
         
         try {
             // Create a test navigation service
-            NavigationService navigationService = new NavigationService(sessionFactory, navigator, properties);
+            NavigationService navigationService = new NavigationService(
+                properties, 
+                navigator, 
+                sessionFactory,
+                testParsingRunner
+            );
             
             // Start navigation process
             log.info("Starting navigation process...");
-            boolean success = navigationService.initializeNavigation();
+            boolean success = navigationService.startNavigation();
             
             if (success) {
                 log.info("Navigation process started successfully. Browsers should now be visible.");

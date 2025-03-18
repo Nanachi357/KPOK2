@@ -4,9 +4,11 @@ import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import com.myprojects.kpok2.util.TestParserConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.openqa.selenium.WebDriver;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -23,6 +25,21 @@ public class TestQuestionParser {
     private final TestNormalizer normalizer;
 
     /**
+     * Parse test questions from the current page using WebDriver
+     */
+    public List<ParsedTestQuestionDto> parsePage(WebDriver driver, String url) {
+        try {
+            // Get page source and parse with Jsoup
+            String pageSource = driver.getPageSource();
+            Document doc = Jsoup.parse(pageSource);
+            return parseQuestions(doc);
+        } catch (Exception e) {
+            log.error("Error parsing page {}: {}", url, e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
      * Parses all questions from the document
      * @param doc JSoup Document containing the HTML of the test page
      * @return List of parsed test questions
@@ -36,7 +53,9 @@ public class TestQuestionParser {
         for (Element questionElement : questionElements) {
             try {
                 ParsedTestQuestionDto question = parseQuestion(questionElement);
-                questions.add(question);
+                if (question != null) {
+                    questions.add(question);
+                }
             } catch (Exception e) {
                 log.warn("Error parsing question: {}", e.getMessage());
             }
@@ -51,30 +70,48 @@ public class TestQuestionParser {
      * @return Parsed test question
      */
     private ParsedTestQuestionDto parseQuestion(Element questionElement) {
-        // Get question text
-        String questionText = questionElement.select(TestParserConstants.QUESTION_TEXT_SELECTOR).text();
-        
-        // Get answer options
-        Elements answerElements = questionElement.select(TestParserConstants.ANSWER_OPTION_SELECTOR);
-        List<String> answers = new ArrayList<>();
-        
-        for (Element answerElement : answerElements) {
-            String answerText = answerElement.select(TestParserConstants.ANSWER_TEXT_SELECTOR).text();
-            answers.add(answerText);
+        try {
+            // Get question text
+            Element questionTextElement = questionElement.selectFirst("div.qtext");
+            if (questionTextElement == null) {
+                log.warn("Question text not found in container");
+                return null;
+            }
+            String questionText = questionTextElement.text().trim();
+            
+            // Get correct answer
+            Element correctAnswerElement = questionElement.selectFirst("div.rightanswer");
+            if (correctAnswerElement == null) {
+                log.warn("Correct answer not found in container");
+                return null;
+            }
+            String correctAnswer = correctAnswerElement.text().trim();
+            // Remove the prefix "Correct answer: " if present
+            correctAnswer = correctAnswer.replace(TestParserConstants.CORRECT_ANSWER_PREFIX, "").trim();
+            
+            // Get answer options
+            Elements options = questionElement.select("div.answer div.r0, div.answer div.r1");
+            List<String> answers = new ArrayList<>();
+            for (Element option : options) {
+                String optionText = option.text().trim();
+                if (!optionText.isEmpty()) {
+                    answers.add(optionText);
+                }
+            }
+            
+            // Create and return question DTO
+            return ParsedTestQuestionDto.builder()
+                    .questionText(questionText)
+                    .normalizedText(normalizer.normalizeText(questionText))
+                    .answers(answers)
+                    .correctAnswer(correctAnswer)
+                    .normalizedCorrectAnswer(normalizer.normalizeText(correctAnswer))
+                    .build();
+                    
+        } catch (Exception e) {
+            log.error("Error parsing question container: {}", e.getMessage());
+            return null;
         }
-        
-        // Get correct answer
-        String correctAnswerText = questionElement.select(TestParserConstants.CORRECT_ANSWER_SELECTOR).text();
-        // Remove the prefix "Correct answer: "
-        String correctAnswer = correctAnswerText.replace(TestParserConstants.CORRECT_ANSWER_PREFIX, "");
-        
-        return ParsedTestQuestionDto.builder()
-                .questionText(questionText)
-                .normalizedText(normalizer.normalizeText(questionText))
-                .answers(answers)
-                .correctAnswer(correctAnswer)
-                .normalizedCorrectAnswer(normalizer.normalizeText(correctAnswer))
-                .build();
     }
     
     /**
