@@ -35,3 +35,16 @@ build/
 ## Application specific ###
 /docs/TODO.md
 application-local.properties
+
+### Local mock data ###
+/mock-data/
+
+### Debug output ###
+debug_output/*
+!debug_output/.gitkeep
+!debug_output/html/
+!debug_output/screenshots/
+debug_output/html/*
+!debug_output/html/.gitkeep
+debug_output/screenshots/*
+!debug_output/screenshots/.gitkeep
