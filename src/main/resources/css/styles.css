@@ -1,0 +1,21 @@
+.root {
+    -fx-font-family: "Segoe UI", sans-serif;
+    -fx-font-size: 12px;
+    -fx-background-color: white;
+}
+
+.menu-bar {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 0 0 1 0;
+}
+
+.menu-bar .menu:hover {
+    -fx-background-color: #e9ecef;
+}
+
+.menu-bar .menu-item:hover {
+    -fx-background-color: #e9ecef;
+}
+
+/* Add more styles as needed */ 
