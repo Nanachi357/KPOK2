@@ -17,6 +17,11 @@
         <java.version>17</java.version>
         <org.mapstruct.version>1.5.5.Final</org.mapstruct.version>
         <javafx.version>21.0.2</javafx.version>
+        <javafx.path>${project.basedir}/lib</javafx.path>
+        <javafx.modules>javafx.controls,javafx.fxml,javafx.graphics,javafx.base</javafx.modules>
+        <app.main.class>com.myprojects.kpok2.Kpok2Application</app.main.class>
+        <java.runtime.arguments>--add-opens java.base/java.lang=ALL-UNNAMED</java.runtime.arguments>
+        <javafx.runtime.arguments>--module-path="${javafx.path}" --add-modules=${javafx.modules}</javafx.runtime.arguments>
     </properties>
     <dependencies>
         <dependency>
@@ -74,11 +79,25 @@
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
             <version>${javafx.version}</version>
+            <classifier>win</classifier>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
             <version>${javafx.version}</version>
+            <classifier>win</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-base</artifactId>
+            <version>${javafx.version}</version>
+            <classifier>win</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-graphics</artifactId>
+            <version>${javafx.version}</version>
+            <classifier>win</classifier>
         </dependency>
     </dependencies>
 
@@ -94,8 +113,44 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                    <mainClass>${app.main.class}</mainClass>
+                    <jvmArguments>
+                        --add-opens java.base/java.lang=ALL-UNNAMED --add-modules javafx.controls,javafx.fxml,javafx.graphics,javafx.base
+                    </jvmArguments>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-modules</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeGroupIds>org.openjfx</includeGroupIds>
+                            <outputDirectory>${javafx.path}</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.1</version>
+                <configuration>
+                    <mainClass>${app.main.class}</mainClass>
+                    <arguments>
+                        <argument>${java.runtime.arguments}</argument>
+                        <argument>${javafx.runtime.arguments}</argument>
+                    </arguments>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -126,12 +181,23 @@
                     </compilerArgs>
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>com.myprojects.kpok2.Kpok2Application</mainClass>
+                    <mainClass>${app.main.class}</mainClass>
+                    <options>
+                        <option>${java.runtime.arguments}</option>
+                        <option>${javafx.runtime.arguments}</option>
+                    </options>
+                    <jlinkImageName>kpok2</jlinkImageName>
+                    <launcher>launcher</launcher>
+                    <compress>2</compress>
+                    <noHeaderFiles>true</noHeaderFiles>
+                    <noManPages>true</noManPages>
+                    <stripDebug>true</stripDebug>
                 </configuration>
             </plugin>
         </plugins>

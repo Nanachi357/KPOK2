@@ -10,12 +10,12 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import java.util.ResourceBundle;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {
     "com.myprojects.kpok2",
     "com.myprojects.kpok2.config",
-    "com.myprojects.kpok2.runner",
     "com.myprojects.kpok2.service.navigation"
 })
 public class Kpok2Application extends Application {
@@ -29,8 +29,10 @@ public class Kpok2Application extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
+        ResourceBundle bundle = ResourceBundle.getBundle("i18n.messages");
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/main-window.fxml"));
         fxmlLoader.setControllerFactory(springContext::getBean);
+        fxmlLoader.setResources(bundle);
         
         Parent root = fxmlLoader.load();
         Scene scene = new Scene(root);
