@@ -1,6 +1,8 @@
 package com.myprojects.kpok2.service.navigation;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
+import com.myprojects.kpok2.service.AccountConfigurationService;
+import com.myprojects.kpok2.service.AccountConfigurationService.AccountDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,6 +10,8 @@ import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Factory for creating navigation sessions.
@@ -20,15 +24,18 @@ public class NavigationSessionFactory {
     private final AccountManager accountManager;
     private final WebDriverFactory webDriverFactory;
     private final TestCenterProperties testCenterProperties;
+    private final AccountConfigurationService accountService;
 
     @Autowired
     public NavigationSessionFactory(
             AccountManager accountManager,
             WebDriverFactory webDriverFactory,
-            TestCenterProperties testCenterProperties) {
+            TestCenterProperties testCenterProperties,
+            AccountConfigurationService accountService) {
         this.accountManager = accountManager;
         this.webDriverFactory = webDriverFactory;
         this.testCenterProperties = testCenterProperties;
+        this.accountService = accountService;
     }
 
     /**
@@ -38,21 +45,47 @@ public class NavigationSessionFactory {
     public void initializeAccountPool() {
         log.info("Initializing account pool for navigation...");
         
-        var enabledAccounts = testCenterProperties.getEnabledAccounts();
+        // First try to get accounts from the account service
+        List<AccountDTO> enabledAccounts = accountService.getAccounts().stream()
+                .filter(AccountDTO::isEnabled)
+                .collect(Collectors.toList());
         
-        if (enabledAccounts.isEmpty()) {
-            log.warn("No TestCenter accounts found in configuration! Navigation will not work properly.");
-            return;
+        if (!enabledAccounts.isEmpty()) {
+            log.info("Using accounts from account manager");
+            
+            // Add all active accounts to the pool
+            for (AccountDTO account : enabledAccounts) {
+                accountManager.addAccount(account.getUsername(), account.getPassword());
+                log.info("Added account to pool: {}", account.getUsername());
+            }
+        } else {
+            // Fall back to TestCenterProperties accounts
+            var configAccounts = testCenterProperties.getEnabledAccounts();
+            
+            if (configAccounts.isEmpty()) {
+                log.warn("No TestCenter accounts found in configuration! Navigation will not work properly.");
+                return;
+            }
+            
+            log.info("Using accounts from configuration properties");
+            
+            // Add all active accounts from config to the pool
+            for (var account : configAccounts) {
+                accountManager.addAccount(account.getUsername(), account.getPassword());
+                log.info("Added account to pool: {}", account.getUsername());
+            }
         }
         
-        // Add all active accounts to the pool
-        for (var account : enabledAccounts) {
-            accountManager.addAccount(account.getUsername(), account.getPassword());
-            log.info("Added account to pool: {}", account.getUsername());
-        }
+        // Set navigation settings from account service if available
+        int maxThreads = accountService.getMaxThreads();
+        int threadTimeout = accountService.getThreadTimeout();
+        
+        // Update TestCenterProperties with these values
+        testCenterProperties.getNavigation().setMaxThreads(maxThreads);
+        testCenterProperties.getNavigation().setThreadTimeoutSeconds(threadTimeout);
         
         log.info("Account pool initialized with {} accounts", accountManager.getAccountCount());
-        log.info("Maximum parallel navigation threads: {}", testCenterProperties.getNavigation().getMaxThreads());
+        log.info("Navigation settings: maxThreads={}, threadTimeout={}s", maxThreads, threadTimeout);
     }
     
     /**

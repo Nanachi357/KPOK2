@@ -92,6 +92,29 @@ public class AccountManager {
     }
     
     /**
+     * Clear all accounts from the pool.
+     */
+    public void clearAccounts() {
+        accountLock.lock();
+        try {
+            // Check for any in-use accounts before clearing
+            long inUseCount = accountPool.stream()
+                    .filter(AccountCredentials::isInUse)
+                    .count();
+            
+            if (inUseCount > 0) {
+                log.warn("Clearing account pool with {} accounts still in use", inUseCount);
+            }
+            
+            int accountCount = accountPool.size();
+            accountPool.clear();
+            log.info("Cleared {} accounts from pool", accountCount);
+        } finally {
+            accountLock.unlock();
+        }
+    }
+    
+    /**
      * Get the current number of accounts in the pool.
      *
      * @return The number of accounts

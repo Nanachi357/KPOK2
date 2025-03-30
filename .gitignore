@@ -40,6 +40,16 @@ application-local.properties
 ### Local mock data ###
 /mock-data/
 
+### Logs ###
+logs/
+/logs/
+logs/*
+*.log
+application.log
+/logs/application.log
+logs/application.log
+!logs/.gitkeep
+
 ### Debug output ###
 debug_output/*
 !debug_output/.gitkeep

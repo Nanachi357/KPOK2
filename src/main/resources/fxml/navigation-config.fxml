@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.myprojects.kpok2.controller.NavigationConfigController"
+      prefHeight="250.0" prefWidth="400.0" spacing="10">
+    
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+    
+    <Label text="%navigation.config.title" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+    
+    <Separator/>
+    
+    <VBox spacing="10">
+        <Label text="%navigation.config.threads" style="-fx-font-weight: bold;"/>
+        
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="%navigation.config.max.threads" />
+            <Spinner fx:id="maxThreadsSpinner" prefWidth="100" />
+            <Label text="%navigation.config.max.threads.range" />
+        </HBox>
+        
+        <Label text="%navigation.config.note" />
+        
+    </VBox>
+    
+    <Separator/>
+    
+    <HBox spacing="10" alignment="CENTER_RIGHT" VBox.vgrow="ALWAYS">
+        <padding>
+            <Insets top="20" right="0" bottom="0" left="0"/>
+        </padding>
+        <Button text="%navigation.config.cancel" onAction="#onCancelClick" cancelButton="true"/>
+        <Button text="%navigation.config.save" onAction="#onSaveClick" defaultButton="true"/>
+    </HBox>
+    
+</VBox> 

@@ -15,6 +15,10 @@
             <MenuItem text="%menu.file.settings" onAction="#onSettingsClick"/>
             <MenuItem text="%menu.file.exit" onAction="#onExitClick"/>
         </Menu>
+        <Menu text="%menu.testcenter">
+            <MenuItem text="%menu.testcenter.accounts" onAction="#onManageAccountsClick"/>
+            <MenuItem text="%menu.testcenter.navigation" onAction="#onSettingsClick"/>
+        </Menu>
         <Menu text="%menu.logs">
             <MenuItem text="%menu.logs.configure" onAction="#onConfigureLogsClick"/>
             <MenuItem text="%menu.logs.clear" onAction="#onClearLogsClick"/>

@@ -46,8 +46,8 @@ public class TestCenterProperties {
         // Maximum number of parallel threads
         private int maxThreads = 1;
         
-        // Thread timeout in seconds
-        private int threadTimeoutSeconds = 300;
+        // Thread timeout in seconds (browser stays open after navigation)
+        private int threadTimeoutSeconds = 2;
     }
     
     /**

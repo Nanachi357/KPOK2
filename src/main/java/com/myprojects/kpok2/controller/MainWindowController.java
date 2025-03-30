@@ -99,7 +99,40 @@ public class MainWindowController {
     
     @FXML
     public void onSettingsClick() {
-        // TODO: Open settings window
+        // Open navigation configuration window
+        openNavigationConfigWindow();
+    }
+    
+    /**
+     * Open navigation config window
+     */
+    private void openNavigationConfigWindow() {
+        try {
+            // Load FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/navigation-config.fxml"));
+            loader.setControllerFactory(applicationContext::getBean);
+            loader.setResources(ResourceBundle.getBundle("i18n.messages"));
+            
+            Parent root = loader.load();
+            
+            // Create new stage
+            Stage stage = new Stage();
+            stage.setTitle(messageSource.getMessage("navigation.config.title", null, Locale.getDefault()));
+            stage.setScene(new Scene(root));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setResizable(false);
+            
+            // Set stage in controller
+            NavigationConfigController controller = loader.getController();
+            controller.setStage(stage);
+            
+            // Show dialog
+            stage.showAndWait();
+            
+            log.info("Opened navigation configuration window");
+        } catch (Exception e) {
+            log.error("Error opening navigation configuration dialog: {}", e.getMessage(), e);
+        }
     }
     
     @FXML
@@ -108,6 +141,21 @@ public class MainWindowController {
         LogConfigController.shutdown();
         
         Platform.exit();
+    }
+    
+    @FXML
+    public void onManageAccountsClick() {
+        try {
+            // Get account management controller from Spring context
+            AccountManagementController controller = applicationContext.getBean(AccountManagementController.class);
+            
+            // Show account management window
+            controller.showAccountManagementWindow();
+            
+            log.info("Opened account management window");
+        } catch (Exception e) {
+            log.error("Error opening account management window: {}", e.getMessage(), e);
+        }
     }
     
     @FXML
