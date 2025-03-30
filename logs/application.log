@@ -1,0 +1,17 @@
+2025-03-30 16:00:58.635 [JavaFX Application Thread] INFO  c.m.k.controller.LogConfigController - Successfully cleared application.log
+2025-03-30 16:00:58.635 [JavaFX Application Thread] INFO  c.m.k.controller.LogConfigController - Auto save enabled: true
+2025-03-30 16:00:58.636 [JavaFX Application Thread] INFO  c.m.k.controller.LogConfigController - Auto save interval: 15 minutes
+2025-03-30 16:00:58.636 [JavaFX Application Thread] INFO  c.m.k.controller.LogConfigController - Created new scheduler for auto save
+2025-03-30 16:00:58.636 [JavaFX Application Thread] INFO  c.m.k.controller.LogConfigController - Scheduling auto save task every 15 minutes
+2025-03-30 16:00:58.636 [JavaFX Application Thread] INFO  c.m.k.controller.LogConfigController - Log settings applied successfully
+2025-03-30 16:00:58.636 [JavaFX Application Thread] INFO  c.m.k.c.MainWindowController - Application started
+2025-03-30 16:00:58.967 [JavaFX Application Thread] INFO  c.m.k.controller.LogConfigController - UI logs area cleared
+2025-03-30 16:00:59.020 [JavaFX Application Thread] INFO  c.m.k.c.MainWindowController - Logs cleared programmatically
+2025-03-30 16:01:15.131 [JavaFX Application Thread] INFO  c.m.k.c.NavigationController - Application shutting down, cleaning up navigation resources
+2025-03-30 16:01:15.131 [JavaFX Application Thread] INFO  c.m.k.s.navigation.NavigationService - Shutting down navigation service
+2025-03-30 16:01:15.131 [JavaFX Application Thread] INFO  c.m.k.s.navigation.NavigationService - Navigation service shutdown complete
+2025-03-30 16:01:15.133 [JavaFX Application Thread] INFO  c.m.k.s.n.NavigationSessionFactory - Cleaning up navigation resources...
+2025-03-30 16:01:15.133 [JavaFX Application Thread] INFO  c.m.k.s.navigation.WebDriverFactory - Closing all WebDriver instances (0)
+2025-03-30 16:01:15.134 [JavaFX Application Thread] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2025-03-30 16:01:15.136 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-03-30 16:01:15.140 [JavaFX Application Thread] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
