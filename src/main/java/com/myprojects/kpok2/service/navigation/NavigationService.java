@@ -8,6 +8,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.By;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +19,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import java.time.Duration;
+import com.myprojects.kpok2.service.navigation.TestCenterNavigator;
 
 /**
  * Service for managing navigation processes with multi-threading support.
@@ -58,6 +64,15 @@ public class NavigationService {
         // Set up iteration counting
         int iterationCount = accountService.getIterationCount();
         parsingStatistics.setTotalIterationsNeeded(iterationCount);
+        
+        // Log session reuse setting
+        boolean reuseSession = accountService.isReuseSession();
+        if (reuseSession) {
+            log.info("Session reuse is ENABLED - browser sessions will be kept open between iterations");
+        } else {
+            log.info("Session reuse is DISABLED - new browser sessions will be created for each iteration");
+        }
+        
         if (iterationCount <= 0) {
             log.info("Running in unlimited iteration mode");
         } else {
@@ -123,6 +138,7 @@ public class NavigationService {
             log.info("Starting navigation task: {}", threadName);
             
             NavigationSession session = null;
+            boolean reuseSession = accountService.isReuseSession();
             
             try {
                 // Main iteration loop
@@ -133,7 +149,7 @@ public class NavigationService {
                         break;
                     }
                     
-                    // Create a new session only if we don't have one
+                    // Create a new session only if we don't have one or reuse is disabled
                     if (session == null) {
                         try {
                             session = sessionFactory.createSession();
@@ -165,6 +181,87 @@ public class NavigationService {
                         if (!parsingStatistics.isMoreIterationsNeeded()) {
                             log.info("{}: Target iteration count reached, exiting loop", threadName);
                             break;
+                        }
+                        
+                        // If we're not reusing sessions between iterations, close the current one
+                        if (!reuseSession) {
+                            if (session != null) {
+                                try {
+                                    session.close();
+                                    log.info("{}: Closed navigation session after successful iteration (session reuse disabled)", 
+                                            threadName);
+                                    session = null;
+                                } catch (Exception e) {
+                                    log.warn("{}: Error closing session: {}", threadName, e.getMessage());
+                                    session = null; // Still null it even if close failed
+                                }
+                            }
+                        } else {
+                            log.info("{}: Keeping navigation session open for next iteration (session reuse enabled)", 
+                                     threadName);
+                            
+                            // Navigate back to test page to prepare for next iteration
+                            try {
+                                String testUrl = "https://test.testcentr.org.ua/mod/quiz/view.php?id=109"; // Direct usage of test page URL
+                                String loginUrl = "https://test.testcentr.org.ua/login/index.php"; // Login page URL
+                                log.info("{}: Navigating directly to TEST_URL: {}", threadName, testUrl);
+                                WebDriver driver = session.getWebDriver();
+                                
+                                // Log current URL before navigation
+                                String currentUrl = driver.getCurrentUrl();
+                                log.info("{}: Current URL before navigation: {}", threadName, currentUrl);
+                                
+                                // Direct navigation to test page URL instead of using navigator
+                                driver.get(testUrl);
+                                
+                                // Log URL after navigation and check what page we landed on
+                                String afterNavigationUrl = driver.getCurrentUrl();
+                                log.info("{}: URL after navigation: {}", threadName, afterNavigationUrl);
+                                
+                                // Log page title
+                                String pageTitle = driver.getTitle();
+                                log.info("{}: Page title after navigation: {}", threadName, pageTitle);
+                                
+                                // Check where we landed after navigation attempt
+                                if (afterNavigationUrl.equals(testUrl)) {
+                                    // We're on the test page - authentication is valid
+                                    log.info("{}: Successfully navigated to test page with valid authentication", threadName);
+                                    log.info("{}: Looking for test attempt button", threadName);
+                                    // Proceed to looking for the test attempt button
+                                } else if (afterNavigationUrl.contains(loginUrl)) {
+                                    // We're on the login page - authentication was lost but that's expected
+                                    log.info("{}: Redirected to login page - will authenticate", threadName);
+                                    
+                                    // Use the standard authentication process
+                                    boolean authSuccess = navigator.authenticate(session);
+                                    if (authSuccess) {
+                                        log.info("{}: Successfully re-authenticated", threadName);
+                                        boolean navSuccess = navigator.navigateToTestPage(session);
+                                        if (!navSuccess) {
+                                            log.warn("{}: Failed to navigate to test page after re-authentication - will create new session", threadName);
+                                            session.close();
+                                            session = null;
+                                        } else {
+                                            log.info("{}: Successfully restored session for next iteration", threadName);
+                                        }
+                                    } else {
+                                        log.warn("{}: Failed to re-authenticate - will create new session", threadName);
+                                        session.close();
+                                        session = null;
+                                    }
+                                } else {
+                                    // We landed on an unexpected page - log the error and create a new session
+                                    log.error("{}: Landed on unexpected URL after navigation: {}", threadName, afterNavigationUrl);
+                                    log.warn("{}: Navigation error - will create new session", threadName);
+                                    session.close();
+                                    session = null;
+                                }
+                            } catch (Exception e) {
+                                log.warn("{}: Error during navigation to test page: {}", threadName, e.getMessage());
+                                log.warn("{}: Will create new session", threadName);
+                                session.close();
+                                session = null;
+                            }
                         }
                     } else {
                         log.warn("{}: Iteration failed, will retry with new session", threadName);
@@ -206,10 +303,30 @@ public class NavigationService {
             String username = session.getAccount().getUsername();
             WebDriver driver = session.getWebDriver();
             
+            // Add iteration timeout tracking
+            final long startTime = System.currentTimeMillis();
+            final long ITERATION_TIMEOUT_MS = 90000; // 90 seconds timeout
+            
+            // Helper method to check if iteration timeout exceeded
+            Supplier<Boolean> isTimeoutExceeded = () -> {
+                long elapsedTime = System.currentTimeMillis() - startTime;
+                boolean timeoutExceeded = elapsedTime > ITERATION_TIMEOUT_MS;
+                
+                if (timeoutExceeded) {
+                    log.error("{}: Iteration timeout exceeded ({}ms). Terminating iteration for account: {}", 
+                        threadName, elapsedTime, username);
+                }
+                
+                return timeoutExceeded;
+            };
+            
             try {
                 // Step 1: Authenticate
                 try {
                     boolean authSuccess = navigator.authenticate(session);
+                    // Check timeout after authentication
+                    if (isTimeoutExceeded.get()) return false;
+                    
                     if (!authSuccess) {
                         log.error("{}: Authentication failed for account: {}", threadName, username);
                         return false;
@@ -227,9 +344,15 @@ public class NavigationService {
                     Thread.currentThread().interrupt();
                 }
                 
+                // Check timeout before proceeding
+                if (isTimeoutExceeded.get()) return false;
+                
                 // Step 2: Navigate to test page
                 try {
                     boolean navSuccess = navigator.navigateToTestPage(session);
+                    // Check timeout after navigation
+                    if (isTimeoutExceeded.get()) return false;
+                    
                     if (!navSuccess) {
                         log.error("{}: Failed to navigate to test page for account: {}", threadName, username);
                         return false;
@@ -247,7 +370,10 @@ public class NavigationService {
                     Thread.currentThread().interrupt();
                 }
                 
-                // Step 3: Click "Спроба тесту" or "Продовжити спробу" button
+                // Check timeout before proceeding
+                if (isTimeoutExceeded.get()) return false;
+                
+                // Step 3: Click "Attempt Test" or "Continue Attempt" button
                 TestCenterNavigator.AttemptButtonResult attemptResult;
                 try {
                     attemptResult = navigator.clickAttemptTestButton(session);
@@ -269,92 +395,92 @@ public class NavigationService {
                     Thread.currentThread().interrupt();
                 }
                 
-                // Step 4: Click "Почати спробу" button - only if we clicked "Спроба тесту" (not "Продовжити спробу")
+                // Step 4: Click "Start Attempt" button - only if we clicked "Attempt Test" (not "Continue Attempt")
                 if (!attemptResult.isResumeAttempt()) {
                     try {
                         boolean startBtnSuccess = navigator.clickStartAttemptButton(session);
                         if (!startBtnSuccess) {
-                            log.error("{}: Failed to click 'Почати спробу' button for account: {}", 
+                            log.error("{}: Failed to click 'Start Attempt' button for account: {}", 
                                     threadName, username);
                             return false;
                         }
-                        log.info("{}: Click on 'Почати спробу' button successful for account: {}", 
+                        log.info("{}: Click on 'Start Attempt' button successful for account: {}", 
                                 threadName, username);
                     } catch (Exception e) {
-                        log.error("{}: Error during 'Почати спробу' button click for account {}: {}", 
+                        log.error("{}: Error during 'Start Attempt' button click for account {}: {}", 
                                 threadName, username, e.getMessage());
                         return false;
                     }
                     
                     try {
-                        // Short delay after clicking "Почати спробу" button
+                        // Short delay after clicking "Start Attempt" button
                         Thread.sleep(1000);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
                 } else {
-                    log.info("{}: Skipping 'Почати спробу' button click for account: {} as this is a resume attempt", 
+                    log.info("{}: Skipping 'Start Attempt' button click for account: {} as this is a resume attempt", 
                             threadName, username);
                 }
                 
-                // Step 5: Click "Завершити спробу..." link
+                // Step 5: Click "Finish Attempt..." link
                 try {
                     boolean finishLinkSuccess = navigator.clickFinishAttemptLink(session);
                     if (!finishLinkSuccess) {
-                        log.error("{}: Failed to click 'Завершити спробу...' link for account: {}", 
+                        log.error("{}: Failed to click 'Finish Attempt...' link for account: {}", 
                                 threadName, username);
                         return false;
                     }
-                    log.info("{}: Click on 'Завершити спробу...' link successful for account: {}", 
+                    log.info("{}: Click on 'Finish Attempt...' link successful for account: {}", 
                             threadName, username);
                 } catch (Exception e) {
-                    log.error("{}: Error during 'Завершити спробу...' link click for account {}: {}", 
+                    log.error("{}: Error during 'Finish Attempt...' link click for account {}: {}", 
                             threadName, username, e.getMessage());
                     return false;
                 }
                 
                 try {
-                    // Short delay after clicking "Завершити спробу..." link
+                    // Short delay after clicking "Finish Attempt..." link
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
                 
-                // Step 6: Click "Відправити все та завершити" button
+                // Step 6: Click "Submit All and Finish" button
                 try {
                     boolean submitBtnSuccess = navigator.clickSubmitAllButton(session);
                     if (!submitBtnSuccess) {
-                        log.error("{}: Failed to click 'Відправити все та завершити' button for account: {}", 
+                        log.error("{}: Failed to click 'Submit All and Finish' button for account: {}", 
                                 threadName, username);
                         return false;
                     }
-                    log.info("{}: Click on 'Відправити все та завершити' button successful for account: {}", 
+                    log.info("{}: Click on 'Submit All and Finish' button successful for account: {}", 
                             threadName, username);
                 } catch (Exception e) {
-                    log.error("{}: Error during 'Відправити все та завершити' button click for account {}: {}", 
+                    log.error("{}: Error during 'Submit All and Finish' button click for account {}: {}", 
                             threadName, username, e.getMessage());
                     return false;
                 }
                 
                 try {
-                    // Short delay after clicking "Відправити все та завершити" button
+                    // Short delay after clicking "Submit All and Finish" button
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
                 
-                // Step 7: Click confirmation "Відправити все та завершити" button
+                // Step 7: Click confirmation "Submit All and Finish" button
                 try {
                     boolean confirmBtnSuccess = navigator.clickConfirmSubmitButton(session);
                     if (!confirmBtnSuccess) {
-                        log.error("{}: Failed to click confirmation 'Відправити все та завершити' button for account: {}", 
+                        log.error("{}: Failed to click confirmation 'Submit All and Finish' button for account: {}", 
                                 threadName, username);
                         return false;
                     }
-                    log.info("{}: Click on confirmation 'Відправити все та завершити' button successful for account: {}", 
+                    log.info("{}: Click on confirmation 'Submit All and Finish' button successful for account: {}", 
                             threadName, username);
                 } catch (Exception e) {
-                    log.error("{}: Error during confirm 'Відправити все та завершити' button click for account {}: {}", 
+                    log.error("{}: Error during confirm 'Submit All and Finish' button click for account {}: {}", 
                             threadName, username, e.getMessage());
                     return false;
                 }

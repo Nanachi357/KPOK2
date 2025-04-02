@@ -2,13 +2,14 @@
 
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.control.*?>
 <?import javafx.geometry.Insets?>
 
 <VBox xmlns="http://javafx.com/javafx"
       xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.myprojects.kpok2.controller.NavigationConfigController"
-      prefHeight="300.0" prefWidth="400.0" spacing="10">
+      prefHeight="250.0" prefWidth="400.0" spacing="10">
     
     <padding>
         <Insets top="20" right="20" bottom="20" left="20"/>
@@ -16,44 +17,26 @@
     
     <Label text="%navigation.config.title" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
     
-    <Separator/>
-    
-    <VBox spacing="10">
-        <Label text="%navigation.config.threads" style="-fx-font-weight: bold;"/>
-        
-        <HBox spacing="10" alignment="CENTER_LEFT">
-            <Label text="%navigation.config.max.threads" />
-            <Spinner fx:id="maxThreadsSpinner" prefWidth="100" />
-            <Label text="%navigation.config.max.threads.range" />
-        </HBox>
-        
-        <Label text="%navigation.config.note" />
-        
-    </VBox>
-    
-    <Separator/>
-    
-    <VBox spacing="10">
-        <Label text="%navigation.config.iterations" style="-fx-font-weight: bold;"/>
-        
-        <HBox spacing="10" alignment="CENTER_LEFT">
-            <Label text="%navigation.config.iteration.count" />
-            <Spinner fx:id="iterationCountSpinner" prefWidth="100" />
-            <Label text="%navigation.config.iteration.count.help" />
-        </HBox>
-        
-        <Label text="%navigation.config.iteration.note" wrapText="true" />
-        
-    </VBox>
-    
-    <Separator/>
-    
-    <HBox spacing="10" alignment="CENTER_RIGHT" VBox.vgrow="ALWAYS">
+    <GridPane hgap="10" vgap="10">
         <padding>
-            <Insets top="20" right="0" bottom="0" left="0"/>
+            <Insets top="10" right="0" bottom="10" left="0"/>
         </padding>
-        <Button text="%navigation.config.cancel" onAction="#onCancelClick" cancelButton="true"/>
-        <Button text="%navigation.config.save" onAction="#onSaveClick" defaultButton="true"/>
-    </HBox>
+        
+        <!-- Max Threads Row -->
+        <Label text="%navigation.config.max.threads" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+        <Spinner fx:id="maxThreadsSpinner" editable="true" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+        
+        <!-- Iteration Count Row -->
+        <Label text="%navigation.config.iteration.count" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+        <Spinner fx:id="iterationCountSpinner" editable="true" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+        
+        <!-- Session Reuse Row -->
+        <Label text="%navigation.config.reuse.session" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+        <CheckBox fx:id="reuseSessionCheckbox" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+    </GridPane>
     
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button fx:id="saveButton" text="%button.save" onAction="#onSaveClick"/>
+        <Button fx:id="cancelButton" text="%button.cancel" onAction="#onCancelClick"/>
+    </HBox>
 </VBox> 

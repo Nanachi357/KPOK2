@@ -48,6 +48,9 @@ public class TestCenterProperties {
         
         // Thread timeout in seconds (browser stays open after navigation)
         private int threadTimeoutSeconds = 2;
+        
+        // Whether to reuse browser sessions between iterations
+        private boolean reuseSession = false;
     }
     
     /**

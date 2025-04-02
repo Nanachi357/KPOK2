@@ -2,8 +2,11 @@ package com.myprojects.kpok2.controller;
 
 import com.myprojects.kpok2.service.AccountConfigurationService;
 import javafx.fxml.FXML;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.Tooltip;
 import javafx.stage.Stage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,15 @@ public class NavigationConfigController {
     
     @FXML
     private Spinner<Integer> iterationCountSpinner;
+    
+    @FXML
+    private CheckBox reuseSessionCheckbox;
+    
+    @FXML
+    private Button saveButton;
+    
+    @FXML
+    private Button cancelButton;
     
     private final AccountConfigurationService accountService;
     private Stage stage;
@@ -46,39 +58,40 @@ public class NavigationConfigController {
     
     @FXML
     public void initialize() {
-        // Configure max threads spinner with value constraints
-        SpinnerValueFactory<Integer> maxThreadsValueFactory = 
-                new SpinnerValueFactory.IntegerSpinnerValueFactory(MIN_THREADS, MAX_THREADS, DEFAULT_THREADS);
-        maxThreadsSpinner.setValueFactory(maxThreadsValueFactory);
-        maxThreadsSpinner.getValueFactory().setValue(accountService.getMaxThreads());
-        
-        // Configure iteration count spinner with value constraints
-        SpinnerValueFactory<Integer> iterationCountValueFactory = 
-                new SpinnerValueFactory.IntegerSpinnerValueFactory(MIN_ITERATIONS, MAX_ITERATIONS, DEFAULT_ITERATIONS);
-        iterationCountSpinner.setValueFactory(iterationCountValueFactory);
-        iterationCountSpinner.getValueFactory().setValue(accountService.getIterationCount());
-        
-        // Make spinners editable
-        maxThreadsSpinner.setEditable(true);
-        iterationCountSpinner.setEditable(true);
-        
-        // Add listener to enforce constraints for maxThreadsSpinner when edited directly
-        maxThreadsSpinner.valueProperty().addListener((obs, oldValue, newValue) -> {
-            if (newValue < MIN_THREADS) {
-                maxThreadsSpinner.getValueFactory().setValue(MIN_THREADS);
-            } else if (newValue > MAX_THREADS) {
-                maxThreadsSpinner.getValueFactory().setValue(MAX_THREADS);
-            }
-        });
-        
-        // Add listener to enforce constraints for iterationCountSpinner when edited directly
-        iterationCountSpinner.valueProperty().addListener((obs, oldValue, newValue) -> {
-            if (newValue < MIN_ITERATIONS) {
-                iterationCountSpinner.getValueFactory().setValue(MIN_ITERATIONS);
-            } else if (newValue > MAX_ITERATIONS) {
-                iterationCountSpinner.getValueFactory().setValue(MAX_ITERATIONS);
-            }
-        });
+        try {
+            log.info("Initializing navigation config window");
+            
+            // Load current values from service
+            int currentMaxThreads = accountService.getMaxThreads();
+            int currentIterationCount = accountService.getIterationCount();
+            boolean currentReuseSession = accountService.isReuseSession();
+            
+            log.info("Loaded current settings: maxThreads={}, iterationCount={}, reuseSession={}", 
+                    currentMaxThreads, currentIterationCount, currentReuseSession);
+            
+            // Set up max threads spinner
+            SpinnerValueFactory<Integer> maxThreadsFactory = 
+                    new SpinnerValueFactory.IntegerSpinnerValueFactory(MIN_THREADS, MAX_THREADS, currentMaxThreads);
+            maxThreadsSpinner.setValueFactory(maxThreadsFactory);
+            
+            // Set up iteration count spinner
+            SpinnerValueFactory<Integer> iterationCountFactory = 
+                    new SpinnerValueFactory.IntegerSpinnerValueFactory(MIN_ITERATIONS, MAX_ITERATIONS, currentIterationCount);
+            iterationCountSpinner.setValueFactory(iterationCountFactory);
+            
+            // Set up reuse session checkbox
+            reuseSessionCheckbox.setSelected(currentReuseSession);
+            
+            // Add tooltip explaining the option
+            reuseSessionCheckbox.setTooltip(new Tooltip(
+                    "When enabled, browser sessions will be reused between iterations.\n" +
+                    "This improves performance but may be less stable.\n" +
+                    "When disabled, a new browser session is created for each iteration."
+            ));
+            
+        } catch (Exception e) {
+            log.error("Error initializing navigation config window", e);
+        }
     }
     
     @FXML
@@ -87,6 +100,7 @@ public class NavigationConfigController {
             // Get values from spinners
             int maxThreads = maxThreadsSpinner.getValue();
             int iterationCount = iterationCountSpinner.getValue();
+            boolean reuseSession = reuseSessionCheckbox.isSelected();
             
             // Validate max threads
             if (maxThreads < MIN_THREADS) {
@@ -105,9 +119,10 @@ public class NavigationConfigController {
             // Save to service
             accountService.setMaxThreads(maxThreads);
             accountService.setIterationCount(iterationCount);
+            accountService.setReuseSession(reuseSession);
             
-            log.info("Navigation settings saved: maxThreads={}, iterationCount={}", 
-                     maxThreads, iterationCount);
+            log.info("Navigation settings saved: maxThreads={}, iterationCount={}, reuseSession={}", 
+                     maxThreads, iterationCount, reuseSession);
             
             // Close the dialog
             stage.close();

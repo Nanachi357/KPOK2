@@ -42,14 +42,17 @@ public class AccountConfigurationService {
     private static final String MAX_THREADS_SUFFIX = ".max-threads";
     private static final String THREAD_TIMEOUT_SUFFIX = ".thread-timeout-seconds";
     private static final String ITERATION_COUNT_SUFFIX = ".iteration-count";
+    private static final String REUSE_SESSION_SUFFIX = ".reuse-session";
     private static final int DEFAULT_MAX_THREADS = 2;
     private static final int DEFAULT_THREAD_TIMEOUT = 2;
     private static final int DEFAULT_ITERATION_COUNT = 10; // Default 10 iterations
+    private static final boolean DEFAULT_REUSE_SESSION = false;
     
     // Current navigation settings
     private int maxThreads = DEFAULT_MAX_THREADS;
     private int threadTimeout = DEFAULT_THREAD_TIMEOUT;
     private int iterationCount = DEFAULT_ITERATION_COUNT;
+    private boolean reuseSession = DEFAULT_REUSE_SESSION;
 
     @Autowired
     public AccountConfigurationService(
@@ -156,6 +159,7 @@ public class AccountConfigurationService {
         String maxThreadsKey = NAVIGATION_PREFIX + MAX_THREADS_SUFFIX;
         String threadTimeoutKey = NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX;
         String iterationCountKey = NAVIGATION_PREFIX + ITERATION_COUNT_SUFFIX;
+        String reuseSessionKey = NAVIGATION_PREFIX + REUSE_SESSION_SUFFIX;
         
         try {
             String maxThreadsStr = properties.getProperty(maxThreadsKey);
@@ -179,14 +183,22 @@ public class AccountConfigurationService {
                 iterationCount = DEFAULT_ITERATION_COUNT;
             }
             
-            log.info("Loaded navigation settings: maxThreads={}, threadTimeout={}, iterationCount={}", 
-                     maxThreads, threadTimeout, iterationCount);
-        } catch (NumberFormatException e) {
+            String reuseSessionStr = properties.getProperty(reuseSessionKey);
+            if (reuseSessionStr != null && !reuseSessionStr.isEmpty()) {
+                reuseSession = Boolean.parseBoolean(reuseSessionStr);
+            } else {
+                reuseSession = DEFAULT_REUSE_SESSION;
+            }
+            
+            log.info("Loaded navigation settings: maxThreads={}, threadTimeout={}, iterationCount={}, reuseSession={}", 
+                     maxThreads, threadTimeout, iterationCount, reuseSession);
+        } catch (Exception e) {
             maxThreads = DEFAULT_MAX_THREADS;
             threadTimeout = DEFAULT_THREAD_TIMEOUT;
             iterationCount = DEFAULT_ITERATION_COUNT;
-            log.warn("Error parsing navigation settings, using defaults: maxThreads={}, threadTimeout={}, iterationCount={}", 
-                     maxThreads, threadTimeout, iterationCount);
+            reuseSession = DEFAULT_REUSE_SESSION;
+            log.warn("Error parsing navigation settings, using defaults: maxThreads={}, threadTimeout={}, iterationCount={}, reuseSession={}", 
+                     maxThreads, threadTimeout, iterationCount, reuseSession);
         }
     }
     
@@ -234,6 +246,7 @@ public class AccountConfigurationService {
             properties.setProperty(NAVIGATION_PREFIX + MAX_THREADS_SUFFIX, String.valueOf(DEFAULT_MAX_THREADS));
             properties.setProperty(NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX, String.valueOf(DEFAULT_THREAD_TIMEOUT));
             properties.setProperty(NAVIGATION_PREFIX + ITERATION_COUNT_SUFFIX, String.valueOf(DEFAULT_ITERATION_COUNT));
+            properties.setProperty(NAVIGATION_PREFIX + REUSE_SESSION_SUFFIX, String.valueOf(DEFAULT_REUSE_SESSION));
             
         } catch (Exception e) {
             log.error("Failed to load accounts from environment", e);
@@ -252,12 +265,13 @@ public class AccountConfigurationService {
             properties.setProperty(NAVIGATION_PREFIX + MAX_THREADS_SUFFIX, String.valueOf(maxThreads));
             properties.setProperty(NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX, String.valueOf(DEFAULT_THREAD_TIMEOUT));
             properties.setProperty(NAVIGATION_PREFIX + ITERATION_COUNT_SUFFIX, String.valueOf(iterationCount));
+            properties.setProperty(NAVIGATION_PREFIX + REUSE_SESSION_SUFFIX, String.valueOf(reuseSession));
             
             // Save properties
             saveProperties();
             
-            log.info("Saved {} accounts to configuration with navigation settings: maxThreads={}, threadTimeout={}, iterationCount={}", 
-                    accounts.size(), maxThreads, DEFAULT_THREAD_TIMEOUT, iterationCount);
+            log.info("Saved {} accounts to configuration with navigation settings: maxThreads={}, threadTimeout={}, iterationCount={}, reuseSession={}", 
+                    accounts.size(), maxThreads, DEFAULT_THREAD_TIMEOUT, iterationCount, reuseSession);
         } catch (Exception e) {
             log.error("Failed to save accounts", e);
             throw new RuntimeException("Failed to save accounts", e);
@@ -433,6 +447,23 @@ public class AccountConfigurationService {
         }
         
         return password;
+    }
+    
+    /**
+     * Get whether to reuse browser sessions between iterations
+     * @return true if sessions should be reused, false otherwise
+     */
+    public boolean isReuseSession() {
+        return reuseSession;
+    }
+    
+    /**
+     * Set whether to reuse browser sessions between iterations
+     * @param reuseSession true to reuse sessions, false otherwise
+     */
+    public void setReuseSession(boolean reuseSession) {
+        this.reuseSession = reuseSession;
+        saveAccounts();
     }
     
     /**

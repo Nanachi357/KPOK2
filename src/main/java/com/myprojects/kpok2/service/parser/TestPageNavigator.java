@@ -31,7 +31,7 @@ public class TestPageNavigator {
 
     private final DebugProperties debugProperties;
     private WebDriver webDriver;
-    private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
     
     @Autowired
     public TestPageNavigator(DebugProperties debugProperties) {

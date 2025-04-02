@@ -6,6 +6,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -113,7 +114,12 @@ public class WebDriverFactory {
         // to ensure session isolation between threads
         options.addArguments("--user-data-dir=/tmp/chrome-profile-" + Thread.currentThread().getId());
         
-        // Create and return the WebDriver
-        return new ChromeDriver(options);
+        // Create a new ChromeDriver instance with the configured options
+        WebDriver driver = new ChromeDriver(options);
+        
+        // Configure timeouts
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(5));
+        
+        return driver;
     }
 } 

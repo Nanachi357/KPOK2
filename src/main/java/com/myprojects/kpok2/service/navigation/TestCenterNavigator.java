@@ -43,8 +43,8 @@ public class TestCenterNavigator {
     // Updating the selector for the blocks drawer button with more precise class and attribute matching
     private static final By BLOCKS_DRAWER_TOGGLE_BUTTON = By.cssSelector("button.btn.icon-no-margin[data-toggler='drawers'][data-target='theme_boost-drawers-blocks']");
     
-    // Increasing timeout to 5 seconds
-    private static final int DEFAULT_TIMEOUT_SECONDS = 5;
+    // Changing timeout from 5 to 3 seconds
+    private static final int DEFAULT_TIMEOUT_SECONDS = 3;
 
     // Adding a new class for attempt button click result
     public class AttemptButtonResult {
