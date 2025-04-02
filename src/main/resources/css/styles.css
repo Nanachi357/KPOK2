@@ -1,0 +1,47 @@
+.root {
+    -fx-font-family: "Segoe UI", sans-serif;
+    -fx-font-size: 12px;
+    -fx-background-color: white;
+}
+
+.menu-bar {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 0 0 1 0;
+}
+
+.menu-bar .menu:hover {
+    -fx-background-color: #e9ecef;
+}
+
+.menu-bar .menu-item:hover {
+    -fx-background-color: #e9ecef;
+}
+
+.status-bar {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #dee2e6;
+    -fx-border-width: 1 0 0 0;
+}
+
+.text-area {
+    -fx-font-family: "Consolas", monospace;
+    -fx-font-size: 12px;
+}
+
+.button {
+    -fx-background-color: #007bff;
+    -fx-text-fill: white;
+    -fx-padding: 5 10 5 10;
+}
+
+.button:hover {
+    -fx-background-color: #0056b3;
+}
+
+/* Style for Stop button */
+.button:pressed {
+    -fx-background-color: #dc3545;
+}
+
+/* Add more styles as needed */ 

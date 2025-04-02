@@ -26,6 +26,7 @@ public class TestParsingRunner {
     private final TestQuestionParser questionParser;
     private final TestQuestionService testQuestionService;
     private final DebugProperties debugProperties;
+    private final TestParsingStatistics parsingStatistics;
     
     /**
      * Process test URL using existing navigation session
@@ -35,6 +36,7 @@ public class TestParsingRunner {
         
         try {
             WebDriver driver = session.getWebDriver();
+            String username = session.getAccount().getUsername();
             
             // Navigate to the test page
             boolean success = pageNavigator.navigateToTestUrl(driver, url);
@@ -51,7 +53,14 @@ public class TestParsingRunner {
             }
             
             // Save parsed questions
-            testQuestionService.saveUniqueQuestions(questions);
+            List<com.myprojects.kpok2.model.TestQuestion> savedQuestions = testQuestionService.saveUniqueQuestions(questions);
+            int newQuestionsCount = savedQuestions.size();
+            
+            // Update account statistics
+            parsingStatistics.registerAccountActivity(username, 1); // Increment page count for this account
+            
+            // Add session info
+            parsingStatistics.addSessionInfo(username, 1, newQuestionsCount);
             
             // Save debug files if enabled
             if (debugProperties.isSaveFiles()) {

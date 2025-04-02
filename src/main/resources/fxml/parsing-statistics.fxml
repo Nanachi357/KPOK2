@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.myprojects.kpok2.controller.ParsingStatisticsController"
+      prefHeight="500.0" prefWidth="600.0" spacing="10">
+    
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+    
+    <Label text="%statistics.title" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+    
+    <Separator/>
+    
+    <!-- Summary section -->
+    <Label text="%statistics.summary" style="-fx-font-weight: bold;"/>
+    
+    <GridPane hgap="15" vgap="5">
+        <padding>
+            <Insets top="5" right="0" bottom="10" left="10"/>
+        </padding>
+        
+        <!-- Header row -->
+        <Label text="%statistics.total.processed" style="-fx-font-weight: bold;" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+        <Label text="%statistics.success" style="-fx-font-weight: bold;" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+        <Label text="%statistics.failed" style="-fx-font-weight: bold;" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+        <Label text="%statistics.new.questions" style="-fx-font-weight: bold;" GridPane.rowIndex="0" GridPane.columnIndex="3"/>
+        
+        <!-- Values row -->
+        <Label fx:id="totalProcessedLabel" text="0" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+        <Label fx:id="successLabel" text="0" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+        <Label fx:id="failedLabel" text="0" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+        <Label fx:id="newQuestionsLabel" text="0" GridPane.rowIndex="1" GridPane.columnIndex="3"/>
+        
+        <!-- Since row -->
+        <Label text="%statistics.since" GridPane.rowIndex="2" GridPane.columnIndex="0" GridPane.columnSpan="2" style="-fx-font-style: italic;"/>
+        <Label fx:id="sinceLabel" text="" GridPane.rowIndex="2" GridPane.columnIndex="2" GridPane.columnSpan="2" style="-fx-font-style: italic;"/>
+    </GridPane>
+    
+    <Separator/>
+    
+    <!-- Session history section -->
+    <Label text="%statistics.session.history" style="-fx-font-weight: bold;"/>
+    
+    <TableView fx:id="sessionTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="accountColumn" text="%statistics.account" prefWidth="150"/>
+            <TableColumn fx:id="timestampColumn" text="%statistics.timestamp" prefWidth="150"/>
+            <TableColumn fx:id="pagesColumn" text="%statistics.pages" prefWidth="100"/>
+            <TableColumn fx:id="questionsColumn" text="%statistics.questions" prefWidth="150"/>
+        </columns>
+    </TableView>
+    
+    <Separator/>
+    
+    <!-- Account Statistics section -->
+    <Label text="%statistics.account.summary" style="-fx-font-weight: bold;"/>
+    
+    <TableView fx:id="accountTable" prefHeight="150.0">
+        <columns>
+            <TableColumn fx:id="accountNameColumn" text="%statistics.account" prefWidth="250"/>
+            <TableColumn fx:id="pagesParsedColumn" text="%statistics.pages.parsed" prefWidth="300"/>
+        </columns>
+    </TableView>
+    
+    <Separator/>
+    
+    <!-- Buttons section -->
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button text="%statistics.reset" onAction="#onResetClick"/>
+        <Button text="%statistics.refresh" onAction="#onRefreshClick"/>
+        <Button text="%statistics.close" onAction="#onCloseClick" defaultButton="true"/>
+    </HBox>
+    
+</VBox> 

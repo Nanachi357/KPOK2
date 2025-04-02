@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.myprojects.kpok2.controller.MainWindowController"
+      prefHeight="600.0" prefWidth="800.0" spacing="10">
+    
+    <MenuBar>
+        <Menu text="%menu.file">
+            <MenuItem text="%menu.file.settings" onAction="#onSettingsClick"/>
+            <MenuItem text="%menu.file.exit" onAction="#onExitClick"/>
+        </Menu>
+        <Menu text="%menu.testcenter">
+            <MenuItem text="%menu.testcenter.accounts" onAction="#onManageAccountsClick"/>
+            <MenuItem text="%menu.testcenter.navigation" onAction="#onSettingsClick"/>
+            <MenuItem text="%menu.testcenter.statistics" onAction="#onStatisticsClick"/>
+        </Menu>
+        <Menu text="%menu.logs">
+            <MenuItem text="%menu.logs.configure" onAction="#onConfigureLogsClick"/>
+            <MenuItem text="%menu.logs.clear" onAction="#onClearLogsClick"/>
+            <MenuItem text="%menu.logs.save" onAction="#onSaveLogsClick"/>
+        </Menu>
+        <Menu text="%menu.help">
+            <MenuItem text="%menu.help.updates" onAction="#onCheckUpdatesClick"/>
+            <MenuItem text="%menu.help.about" onAction="#onAboutClick"/>
+        </Menu>
+    </MenuBar>
+
+    <VBox spacing="10">
+        <padding>
+            <Insets top="10" right="10" bottom="10" left="10"/>
+        </padding>
+        <!-- Control Panel -->
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Button fx:id="startStopButton" text="Start" onAction="#onStartStopClick"/>
+            <Label fx:id="statusLabel" text="Status: Stopped"/>
+        </HBox>
+
+        <!-- Logs Area -->
+        <TextArea fx:id="logsArea" editable="false" wrapText="true" VBox.vgrow="ALWAYS"/>
+    </VBox>
+
+    <!-- Status Bar -->
+    <HBox styleClass="status-bar">
+        <padding>
+            <Insets top="5" right="5" bottom="5" left="5"/>
+        </padding>
+        <Label fx:id="statusBarLabel" text="Ready"/>
+    </HBox>
+</VBox> 

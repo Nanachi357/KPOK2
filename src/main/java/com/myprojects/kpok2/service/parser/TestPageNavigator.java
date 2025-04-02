@@ -58,7 +58,7 @@ public class TestPageNavigator {
         try {
             log.info("Cleaning up debug directories...");
             
-            // Створюємо або очищуємо директорії
+            // Create or clean directories
             createOrCleanDirectory(debugProperties.getHtmlDirPath());
             createOrCleanDirectory(debugProperties.getScreenshotsDirPath());
             
@@ -75,7 +75,7 @@ public class TestPageNavigator {
     private void createOrCleanDirectory(String dirPath) throws IOException {
         Path path = Path.of(dirPath);
         if (Files.exists(path)) {
-            // Видаляємо всі файли в директорії
+            // Delete all files in the directory
             Files.walk(path)
                 .filter(Files::isRegularFile)
                 .forEach(file -> {
@@ -87,7 +87,7 @@ public class TestPageNavigator {
                 });
             log.debug("Cleaned directory: {}", dirPath);
         } else {
-            // Створюємо нову директорію
+            // Create a new directory
             Files.createDirectories(path);
             log.debug("Created directory: {}", dirPath);
         }
@@ -108,10 +108,10 @@ public class TestPageNavigator {
      */
     public boolean verifyPageLoaded(String expectedUrl) {
         try {
-            // Перевірка URL
+            // Check URL
             String currentUrl = webDriver.getCurrentUrl();
             if (!currentUrl.equals(expectedUrl)) {
-                // Якщо URL не співпадає, перевіряємо чи не потрапили ми на сторінку логіну/помилки
+                // If URL doesn't match, check if we were redirected to a login/error page
                 if (currentUrl.contains("/login/") || 
                     currentUrl.contains("/error/") || 
                     currentUrl.contains("/?redirect=")) {
@@ -124,7 +124,7 @@ public class TestPageNavigator {
                 return false;
             }
 
-            // Перевірка наявності контенту
+            // Check for content presence
             WebDriverWait wait = new WebDriverWait(webDriver, Duration.ofSeconds(5));
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("div#page-content")));
             
@@ -141,7 +141,7 @@ public class TestPageNavigator {
      */
     public boolean isAuthenticated() {
         try {
-            // Перевіряємо наявність меню користувача
+            // Check for user menu presence
             return webDriver.findElements(By.cssSelector("li.nav-item.dropdown.ml-3.usermenu")).size() > 0;
         } catch (Exception e) {
             log.error("Failed to check authentication status: {}", e.getMessage());

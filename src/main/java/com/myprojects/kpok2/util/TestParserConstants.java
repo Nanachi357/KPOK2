@@ -17,6 +17,7 @@ public class TestParserConstants {
     public static final String LOGIN_BUTTON_SELECTOR = "button#loginbtn";
 
     // Text constants
+    // Note: This is a literal text string from the TestCenter interface, do not translate
     public static final String CORRECT_ANSWER_PREFIX = "Правильна відповідь: ";
 
     private TestParserConstants() {

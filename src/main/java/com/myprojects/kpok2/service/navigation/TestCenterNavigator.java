@@ -27,13 +27,15 @@ public class TestCenterNavigator {
     private static final By USER_MENU_SELECTOR = By.cssSelector("li.nav-item.dropdown.ml-3.usermenu");
     private static final By LOGIN_ERROR_SELECTOR = By.cssSelector(".loginerrors");
     
-    // Selectors for test attempt buttons
+    // Selectors for test attempt buttons - Ukrainian text values match the TestCenter UI elements
     private static final By ATTEMPT_TEST_BUTTON_SELECTOR = By.cssSelector(".singlebutton .btn-primary");
     private static final By START_ATTEMPT_BUTTON_SELECTOR = By.cssSelector("#id_submitbutton");
+    // Ukrainian text in selectors is preserved as it matches the actual text in the TestCenter UI
     private static final By START_ATTEMPT_TEXT_SELECTOR = By.xpath("//button[contains(text(), 'Почати спробу')]");
     private static final By START_ATTEMPT_ALT_SELECTOR = By.cssSelector("input[type='submit'].btn-primary, button[type='submit'].btn-primary");
     private static final By PREFLIGHT_FORM_SELECTOR = By.cssSelector("#mod_quiz_preflight_form");
     private static final By FINISH_ATTEMPT_LINK_SELECTOR = By.cssSelector(".endtestlink.aalink");
+    // Ukrainian text in selectors is preserved as it matches the actual text in the TestCenter UI
     private static final By FINISH_ATTEMPT_XPATH_SELECTOR = By.xpath("//a[contains(text(), 'Завершити спробу')]");
     private static final By SUBMIT_ALL_BUTTON_SELECTOR = By.cssSelector(".submitbtns .btn-primary");
     private static final By CONFIRM_SUBMIT_BUTTON_SELECTOR = By.cssSelector("button.btn-primary[data-action='save']");
@@ -186,6 +188,7 @@ public class TestCenterNavigator {
             // Check the button text to determine if it's a new attempt or resume attempt
             String buttonText = attemptButton.getText().trim();
             // Using more precise text checks to identify the "Continue attempt" button
+            // Ukrainian texts are preserved as they match the actual texts in TestCenter UI
             boolean isResumeAttempt = buttonText.contains("Продовжуйте свою спробу") || 
                                       buttonText.contains("Продовжити") ||
                                       buttonText.contains("Продовжуйте");
@@ -220,7 +223,7 @@ public class TestCenterNavigator {
     }
     
     /**
-     * Click the "Почати спробу" button in the confirmation dialog
+     * Click the "Start attempt" button in the confirmation dialog
      *
      * @param session The navigation session
      * @return true if button click was successful, false otherwise
@@ -231,7 +234,7 @@ public class TestCenterNavigator {
         String threadName = Thread.currentThread().getName();
         
         try {
-            log.info("{}: Clicking 'Почати спробу' button for account: {}", threadName, username);
+            log.info("{}: Clicking 'Start attempt' button for account: {}", threadName, username);
             
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
             
@@ -243,30 +246,30 @@ public class TestCenterNavigator {
                 startButton = wait.until(
                         ExpectedConditions.elementToBeClickable(START_ATTEMPT_BUTTON_SELECTOR));
             } catch (Exception idEx) {
-                log.warn("{}: Could not find 'Почати спробу' button by ID, trying text: {}", threadName, idEx.getMessage());
+                log.warn("{}: Could not find 'Start attempt' button by ID, trying text: {}", threadName, idEx.getMessage());
                 
                 // Attempt 2: search by button text
                 try {
                     startButton = wait.until(
                             ExpectedConditions.elementToBeClickable(START_ATTEMPT_TEXT_SELECTOR));
                 } catch (Exception textEx) {
-                    log.warn("{}: Could not find 'Почати спробу' button by text, trying other selectors: {}", threadName, textEx.getMessage());
+                    log.warn("{}: Could not find 'Start attempt' button by text, trying other selectors: {}", threadName, textEx.getMessage());
                     
                     // Attempt 3: search by type and class
                     try {
                         startButton = wait.until(
                                 ExpectedConditions.elementToBeClickable(START_ATTEMPT_ALT_SELECTOR));
                     } catch (Exception altEx) {
-                        log.warn("{}: Could not find 'Почати спробу' button by alternative selectors: {}", threadName, altEx.getMessage());
+                        log.warn("{}: Could not find 'Start attempt' button by alternative selectors: {}", threadName, altEx.getMessage());
                         
                         // Last chance attempt using JavaScript
                         try {
-                            log.info("{}: Trying to find 'Почати спробу' button using JavaScript", threadName);
+                            log.info("{}: Trying to find 'Start attempt' button using JavaScript", threadName);
                             String jsScript = 
                                     "var btns = document.querySelectorAll('button, input[type=\"submit\"]');" +
                                     "for(var i=0; i<btns.length; i++) {" +
-                                    "  if(btns[i].textContent.includes('Почати спробу') || " +
-                                    "     btns[i].value && btns[i].value.includes('Почати спробу')) {" +
+                                    "  if(btns[i].textContent.includes('Почати спробу') || " +  // Ukrainian text matches the actual UI button text
+                                    "     btns[i].value && btns[i].value.includes('Почати спробу')) {" +  // Ukrainian text matches the actual UI button value
                                     "    return btns[i];" +
                                     "  }" +
                                     "}" +
@@ -290,7 +293,7 @@ public class TestCenterNavigator {
                 // Update session URL
                 session.updateUrl(driver.getCurrentUrl());
                 
-                log.info("{}: Successfully clicked 'Почати спробу' button for account: {}", threadName, username);
+                log.info("{}: Successfully clicked 'Start attempt' button for account: {}", threadName, username);
                 return true;
             } else {
                 // If button not found by any method, check if we've already navigated to the test page
@@ -339,10 +342,10 @@ public class TestCenterNavigator {
                     return true;
                 }
                 
-                throw new Exception("Could not find or click 'Почати спробу' button with any method");
+                throw new Exception("Could not find or click 'Start attempt' button with any method");
             }
         } catch (Exception e) {
-            log.error("{}: Error clicking 'Почати спробу' button for account {}: {}", 
+            log.error("{}: Error clicking 'Start attempt' button for account {}: {}", 
                     threadName, username, e.getMessage());
             
             // Check if we have an attempt ID in URL despite the click error
@@ -359,7 +362,7 @@ public class TestCenterNavigator {
     }
     
     /**
-     * Click the "Завершити спробу..." link on the test page
+     * Click the "Finish attempt..." link on the test page
      *
      * @param session The navigation session
      * @return true if link click was successful, false otherwise
@@ -402,7 +405,7 @@ public class TestCenterNavigator {
     }
     
     /**
-     * Click the "Відправити все та завершити" button on the summary page
+     * Click the "Submit all and finish" button on the summary page
      *
      * @param session The navigation session
      * @return true if button click was successful, false otherwise
@@ -413,7 +416,7 @@ public class TestCenterNavigator {
         String threadName = Thread.currentThread().getName();
         
         try {
-            log.info("{}: Clicking 'Відправити все та завершити' button for account: {}", threadName, username);
+            log.info("{}: Clicking 'Submit all and finish' button for account: {}", threadName, username);
             
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
             
@@ -430,17 +433,17 @@ public class TestCenterNavigator {
             // Update session URL
             session.updateUrl(driver.getCurrentUrl());
             
-            log.info("{}: Successfully clicked 'Відправити все та завершити' button for account: {}", threadName, username);
+            log.info("{}: Successfully clicked 'Submit all and finish' button for account: {}", threadName, username);
             return true;
         } catch (Exception e) {
-            log.error("{}: Error clicking 'Відправити все та завершити' button for account {}: {}", 
+            log.error("{}: Error clicking 'Submit all and finish' button for account {}: {}", 
                     threadName, username, e.getMessage());
             return false;
         }
     }
     
     /**
-     * Click the confirmation "Відправити все та завершити" button in the modal dialog
+     * Click the confirmation "Submit all and finish" button in the modal dialog
      *
      * @param session The navigation session
      * @return true if button click was successful, false otherwise
@@ -451,7 +454,7 @@ public class TestCenterNavigator {
         String threadName = Thread.currentThread().getName();
         
         try {
-            log.info("{}: Clicking confirmation 'Відправити все та завершити' button for account: {}", threadName, username);
+            log.info("{}: Clicking confirmation 'Submit all and finish' button for account: {}", threadName, username);
             
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
             

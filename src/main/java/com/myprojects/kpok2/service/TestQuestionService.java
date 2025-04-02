@@ -4,6 +4,7 @@ import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.repository.TestQuestionRepository;
 import com.myprojects.kpok2.service.mapper.TestQuestionMapper;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
+import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import java.util.Optional;
 public class TestQuestionService {
     private final TestQuestionRepository repository;
     private final TestQuestionMapper testQuestionMapper;
+    private final TestParsingStatistics parsingStatistics;
 
     @Transactional
     public List<TestQuestion> saveUniqueQuestions(List<ParsedTestQuestionDto> questions) {
@@ -35,7 +37,12 @@ public class TestQuestionService {
             }
         }
 
-        log.info("Saved {} new questions", savedQuestions.size());
+        int newQuestionsCount = savedQuestions.size();
+        log.info("Saved {} new questions", newQuestionsCount);
+        
+        // Update parsing statistics with information about new questions
+        parsingStatistics.incrementNewQuestions(newQuestionsCount);
+        
         return savedQuestions;
     }
 

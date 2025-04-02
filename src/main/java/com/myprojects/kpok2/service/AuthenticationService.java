@@ -1,6 +1,7 @@
 package com.myprojects.kpok2.service;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
+import com.myprojects.kpok2.service.AccountConfigurationService.AccountDTO;
 import com.myprojects.kpok2.util.TestParserConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,8 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -21,6 +24,7 @@ public class AuthenticationService {
 
     private final WebDriver webDriver;
     private final TestCenterProperties config;
+    private final AccountConfigurationService accountService;
 
     /**
      * Attempt to log in to the test center if not already logged in
@@ -71,11 +75,31 @@ public class AuthenticationService {
             WebElement submitButton = webDriver.findElement(By.cssSelector(TestParserConstants.LOGIN_BUTTON_SELECTOR));
 
             log.debug("Found all form elements, proceeding with login");
-            // Use first enabled account or fall back to legacy username/password
-            String username = !config.getEnabledAccounts().isEmpty() ? 
-                config.getEnabledAccounts().get(0).getUsername() : config.getUsername();
-            String password = !config.getEnabledAccounts().isEmpty() ? 
-                config.getEnabledAccounts().get(0).getPassword() : config.getPassword();
+            
+            // Try to use account from AccountConfigurationService first
+            List<AccountDTO> enabledAccounts = accountService.getAccounts().stream()
+                    .filter(AccountDTO::isEnabled)
+                    .collect(Collectors.toList());
+            
+            String username;
+            String password;
+            
+            if (!enabledAccounts.isEmpty()) {
+                // Use the first enabled account from the account service
+                username = enabledAccounts.get(0).getUsername();
+                password = enabledAccounts.get(0).getPassword();
+                log.info("Using account from account manager: {}", username);
+            } else if (!config.getEnabledAccounts().isEmpty()) {
+                // Fall back to TestCenterProperties accounts if available
+                username = config.getEnabledAccounts().get(0).getUsername();
+                password = config.getEnabledAccounts().get(0).getPassword();
+                log.info("Using account from config properties: {}", username);
+            } else {
+                // Fall back to legacy username/password as last resort
+                username = config.getUsername();
+                password = config.getPassword();
+                log.info("Using legacy account configuration: {}", username);
+            }
                 
             log.debug("Entering username: {}", username);
             usernameInput.sendKeys(username);

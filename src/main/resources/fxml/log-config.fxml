@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.myprojects.kpok2.controller.LogConfigController"
+      prefHeight="300.0" prefWidth="400.0" spacing="10">
+    
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+    
+    <Label text="%logs.config.title" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+    
+    <Separator/>
+    
+    <VBox spacing="10">
+        <Label text="%logs.config.levels"/>
+        
+        <!-- Log Level Options -->
+        <RadioButton fx:id="debugRadio" text="%logs.config.level.debug" toggleGroup="$logLevelGroup"/>
+        <RadioButton fx:id="infoRadio" text="%logs.config.level.info" toggleGroup="$logLevelGroup" selected="true"/>
+        <RadioButton fx:id="warnRadio" text="%logs.config.level.warn" toggleGroup="$logLevelGroup"/>
+        <RadioButton fx:id="errorRadio" text="%logs.config.level.error" toggleGroup="$logLevelGroup"/>
+    </VBox>
+    
+    <fx:define>
+        <ToggleGroup fx:id="logLevelGroup"/>
+    </fx:define>
+    
+    <Separator/>
+    
+    <CheckBox fx:id="clearLogsOnStartupCheckBox" text="%logs.config.clear.on.startup"/>
+    
+    <Separator/>
+    
+    <CheckBox fx:id="autoSaveCheckBox" text="%logs.config.autosave.enable"/>
+    
+    <HBox spacing="10" alignment="CENTER_LEFT" fx:id="autoSaveInterval">
+        <Label text="%logs.config.autosave.interval"/>
+        <TextField fx:id="intervalField" prefWidth="50"/>
+        <Label text="%logs.config.autosave.minutes"/>
+    </HBox>
+    
+    <HBox spacing="10" alignment="CENTER_RIGHT" VBox.vgrow="ALWAYS">
+        <padding>
+            <Insets top="20" right="0" bottom="0" left="0"/>
+        </padding>
+        <Button text="%logs.config.cancel" onAction="#onCancelClick" cancelButton="true"/>
+        <Button text="%logs.config.save" onAction="#onSaveClick" defaultButton="true"/>
+    </HBox>
+    
+</VBox> 
