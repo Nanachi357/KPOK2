@@ -39,7 +39,7 @@
     -fx-background-color: #0056b3;
 }
 
-/* Стиль для кнопки Stop */
+/* Style for Stop button */
 .button:pressed {
     -fx-background-color: #dc3545;
 }

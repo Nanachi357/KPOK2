@@ -35,7 +35,7 @@ public class TestPageParser {
             
             if (!success) {
                 throw new ParsingException(
-                        ParsingErrorType.PROCESSING_ERROR, // Загальна помилка обробки URL
+                        ParsingErrorType.PROCESSING_ERROR, // General URL processing error
                         "Failed to process URL: " + url
                 );
             }
@@ -46,7 +46,7 @@ public class TestPageParser {
         } catch (Exception e) {
             log.error("Error during parsing: {}", e.getMessage(), e);
             throw new ParsingException(
-                    ParsingErrorType.PROCESSING_ERROR, // Загальна помилка обробки URL
+                    ParsingErrorType.PROCESSING_ERROR, // General URL processing error
                     "Error processing URL " + url + ": " + e.getMessage(),
                     e
             );

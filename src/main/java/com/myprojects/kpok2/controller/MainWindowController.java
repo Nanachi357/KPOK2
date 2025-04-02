@@ -169,6 +169,36 @@ public class MainWindowController {
     }
     
     @FXML
+    public void onStatisticsClick() {
+        try {
+            // Load FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/parsing-statistics.fxml"));
+            loader.setControllerFactory(applicationContext::getBean);
+            loader.setResources(ResourceBundle.getBundle("i18n.messages"));
+            
+            Parent root = loader.load();
+            
+            // Create new stage
+            Stage stage = new Stage();
+            stage.setTitle(messageSource.getMessage("statistics.title", null, Locale.getDefault()));
+            stage.setScene(new Scene(root));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setResizable(true);
+            
+            // Set stage in controller
+            ParsingStatisticsController controller = loader.getController();
+            controller.setStage(stage);
+            
+            // Show dialog
+            stage.showAndWait();
+            
+            log.info("Opened parsing statistics window");
+        } catch (Exception e) {
+            log.error("Error opening parsing statistics dialog: {}", e.getMessage(), e);
+        }
+    }
+    
+    @FXML
     public void onConfigureLogsClick() {
         try {
             // Load FXML

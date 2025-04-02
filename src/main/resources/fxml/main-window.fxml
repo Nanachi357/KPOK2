@@ -18,6 +18,7 @@
         <Menu text="%menu.testcenter">
             <MenuItem text="%menu.testcenter.accounts" onAction="#onManageAccountsClick"/>
             <MenuItem text="%menu.testcenter.navigation" onAction="#onSettingsClick"/>
+            <MenuItem text="%menu.testcenter.statistics" onAction="#onStatisticsClick"/>
         </Menu>
         <Menu text="%menu.logs">
             <MenuItem text="%menu.logs.configure" onAction="#onConfigureLogsClick"/>

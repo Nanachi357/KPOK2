@@ -2,6 +2,7 @@ package com.myprojects.kpok2.service.navigation;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
 import com.myprojects.kpok2.service.parser.TestParsingRunner;
+import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,7 @@ public class NavigationManager {
     private final TestCenterNavigator navigator;
     private final NavigationSessionFactory sessionFactory;
     private final TestParsingRunner testParsingRunner;
+    private final TestParsingStatistics parsingStatistics;
     private final AtomicBoolean isRunning;
     private CompletableFuture<Void> navigationFuture;
 
@@ -22,12 +24,14 @@ public class NavigationManager {
             TestCenterProperties properties,
             TestCenterNavigator navigator,
             NavigationSessionFactory sessionFactory,
-            TestParsingRunner testParsingRunner
+            TestParsingRunner testParsingRunner,
+            TestParsingStatistics parsingStatistics
     ) {
         this.properties = properties;
         this.navigator = navigator;
         this.sessionFactory = sessionFactory;
         this.testParsingRunner = testParsingRunner;
+        this.parsingStatistics = parsingStatistics;
         this.isRunning = new AtomicBoolean(false);
     }
 
@@ -42,7 +46,8 @@ public class NavigationManager {
                     properties,
                     navigator,
                     sessionFactory,
-                    testParsingRunner
+                    testParsingRunner,
+                    parsingStatistics
             );
 
             log.info("Starting navigation process...");
@@ -52,11 +57,11 @@ public class NavigationManager {
                 isRunning.set(true);
                 log.info("Navigation process started successfully");
                 
-                // Запускаємо процес в окремому потоці
+                // Launch process in a separate thread
                 navigationFuture = CompletableFuture.runAsync(() -> {
                     try {
                         while (isRunning.get()) {
-                            Thread.sleep(1000); // Перевіряємо стан кожну секунду
+                            Thread.sleep(1000); // Check state every second
                         }
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -88,7 +93,7 @@ public class NavigationManager {
             navigationFuture = null;
         }
         
-        // TODO: Додати коректне завершення роботи браузерів
+        // TODO: Add proper browser closure
         log.info("Navigation process stopped");
     }
 

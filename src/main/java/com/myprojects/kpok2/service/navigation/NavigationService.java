@@ -2,6 +2,7 @@ package com.myprojects.kpok2.service.navigation;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
 import com.myprojects.kpok2.service.parser.TestParsingRunner;
+import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class NavigationService {
     private final TestCenterNavigator navigator;
     private final NavigationSessionFactory sessionFactory;
     private final TestParsingRunner testParsingRunner;
+    private final TestParsingStatistics parsingStatistics;
     
     private ExecutorService executorService;
     private final List<Future<?>> runningTasks = new ArrayList<>();
