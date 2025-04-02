@@ -8,7 +8,7 @@
 <VBox xmlns="http://javafx.com/javafx"
       xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.myprojects.kpok2.controller.NavigationConfigController"
-      prefHeight="250.0" prefWidth="400.0" spacing="10">
+      prefHeight="300.0" prefWidth="400.0" spacing="10">
     
     <padding>
         <Insets top="20" right="20" bottom="20" left="20"/>
@@ -28,6 +28,21 @@
         </HBox>
         
         <Label text="%navigation.config.note" />
+        
+    </VBox>
+    
+    <Separator/>
+    
+    <VBox spacing="10">
+        <Label text="%navigation.config.iterations" style="-fx-font-weight: bold;"/>
+        
+        <HBox spacing="10" alignment="CENTER_LEFT">
+            <Label text="%navigation.config.iteration.count" />
+            <Spinner fx:id="iterationCountSpinner" prefWidth="100" />
+            <Label text="%navigation.config.iteration.count.help" />
+        </HBox>
+        
+        <Label text="%navigation.config.iteration.note" wrapText="true" />
         
     </VBox>
     

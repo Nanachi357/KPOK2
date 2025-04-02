@@ -5,6 +5,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriver;
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Represents a navigation session with its associated resources.
@@ -28,6 +29,7 @@ public class NavigationSession implements AutoCloseable {
     private String attemptId;
     
     @Getter
+    @Setter
     private List<String> resultPageUrls;
     
     private final WebDriverFactory webDriverFactory;
@@ -61,8 +63,39 @@ public class NavigationSession implements AutoCloseable {
                 String idPart = parts[1];
                 attemptId = idPart.split("&")[0];
                 log.debug("Extracted attemptId: {}", attemptId);
+                
+                // Generate result page URLs since we have a valid attemptId
+                if (attemptId != null && !attemptId.isEmpty()) {
+                    generateResultPageUrls();
+                }
             }
         }
+    }
+    
+    /**
+     * Generate URLs for result pages based on the current attemptId
+     */
+    private void generateResultPageUrls() {
+        if (attemptId == null || attemptId.isEmpty()) {
+            log.warn("Cannot generate result page URLs: No attempt ID available");
+            return;
+        }
+        
+        String baseResultUrl = "https://test.testcentr.org.ua/mod/quiz/review.php?attempt=" + 
+                              attemptId + "&cmid=109";
+        String page1Url = baseResultUrl + "&page=1";
+        String page2Url = baseResultUrl + "&page=2";
+        
+        // Create a list of result page URLs
+        List<String> urls = new ArrayList<>();
+        urls.add(baseResultUrl);
+        urls.add(page1Url);
+        urls.add(page2Url);
+        
+        // Store URLs in session
+        this.resultPageUrls = urls;
+        
+        log.debug("Generated result page URLs: {}", urls);
     }
     
     /**

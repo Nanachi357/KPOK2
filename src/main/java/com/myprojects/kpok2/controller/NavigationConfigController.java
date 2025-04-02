@@ -19,6 +19,9 @@ public class NavigationConfigController {
     @FXML
     private Spinner<Integer> maxThreadsSpinner;
     
+    @FXML
+    private Spinner<Integer> iterationCountSpinner;
+    
     private final AccountConfigurationService accountService;
     private Stage stage;
     
@@ -26,6 +29,11 @@ public class NavigationConfigController {
     private static final int MIN_THREADS = 1;
     private static final int MAX_THREADS = 10;
     private static final int DEFAULT_THREADS = 2;
+    
+    // Constants for iteration count
+    private static final int MIN_ITERATIONS = 0;
+    private static final int MAX_ITERATIONS = 10000;
+    private static final int DEFAULT_ITERATIONS = 10;
     
     @Autowired
     public NavigationConfigController(AccountConfigurationService accountService) {
@@ -44,8 +52,15 @@ public class NavigationConfigController {
         maxThreadsSpinner.setValueFactory(maxThreadsValueFactory);
         maxThreadsSpinner.getValueFactory().setValue(accountService.getMaxThreads());
         
-        // Make spinner editable
+        // Configure iteration count spinner with value constraints
+        SpinnerValueFactory<Integer> iterationCountValueFactory = 
+                new SpinnerValueFactory.IntegerSpinnerValueFactory(MIN_ITERATIONS, MAX_ITERATIONS, DEFAULT_ITERATIONS);
+        iterationCountSpinner.setValueFactory(iterationCountValueFactory);
+        iterationCountSpinner.getValueFactory().setValue(accountService.getIterationCount());
+        
+        // Make spinners editable
         maxThreadsSpinner.setEditable(true);
+        iterationCountSpinner.setEditable(true);
         
         // Add listener to enforce constraints for maxThreadsSpinner when edited directly
         maxThreadsSpinner.valueProperty().addListener((obs, oldValue, newValue) -> {
@@ -55,6 +70,15 @@ public class NavigationConfigController {
                 maxThreadsSpinner.getValueFactory().setValue(MAX_THREADS);
             }
         });
+        
+        // Add listener to enforce constraints for iterationCountSpinner when edited directly
+        iterationCountSpinner.valueProperty().addListener((obs, oldValue, newValue) -> {
+            if (newValue < MIN_ITERATIONS) {
+                iterationCountSpinner.getValueFactory().setValue(MIN_ITERATIONS);
+            } else if (newValue > MAX_ITERATIONS) {
+                iterationCountSpinner.getValueFactory().setValue(MAX_ITERATIONS);
+            }
+        });
     }
     
     @FXML
@@ -62,6 +86,7 @@ public class NavigationConfigController {
         try {
             // Get values from spinners
             int maxThreads = maxThreadsSpinner.getValue();
+            int iterationCount = iterationCountSpinner.getValue();
             
             // Validate max threads
             if (maxThreads < MIN_THREADS) {
@@ -70,10 +95,19 @@ public class NavigationConfigController {
                 maxThreads = MAX_THREADS;
             }
             
+            // Validate iteration count
+            if (iterationCount < MIN_ITERATIONS) {
+                iterationCount = MIN_ITERATIONS;
+            } else if (iterationCount > MAX_ITERATIONS) {
+                iterationCount = MAX_ITERATIONS;
+            }
+            
             // Save to service
             accountService.setMaxThreads(maxThreads);
+            accountService.setIterationCount(iterationCount);
             
-            log.info("Navigation settings saved: maxThreads={}", maxThreads);
+            log.info("Navigation settings saved: maxThreads={}, iterationCount={}", 
+                     maxThreads, iterationCount);
             
             // Close the dialog
             stage.close();

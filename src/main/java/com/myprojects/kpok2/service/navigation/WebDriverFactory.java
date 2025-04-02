@@ -6,62 +6,91 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Factory for creating and managing WebDriver instances in a multithreaded environment.
- * Each thread will use its own WebDriver instance.
+ * Factory for creating and managing WebDriver instances.
  */
 @Slf4j
 @Component
 public class WebDriverFactory {
+    // Map to store WebDriver instances by thread ID
+    private final Map<Long, WebDriver> driverMap = new ConcurrentHashMap<>();
     
-    private final ConcurrentHashMap<Long, WebDriver> driverMap = new ConcurrentHashMap<>();
+    // ThreadLocal to track current thread's WebDriver
+    private final ThreadLocal<WebDriver> currentDriver = new ThreadLocal<>();
     
     /**
      * Get a WebDriver instance for the current thread.
-     * If the thread doesn't have a driver yet, a new one will be created.
+     * Creates a new instance if none exists.
      *
-     * @return WebDriver instance for this thread
+     * @return The WebDriver instance for the current thread
      */
     public WebDriver getDriver() {
+        // Get current thread ID
         long threadId = Thread.currentThread().getId();
-        return driverMap.computeIfAbsent(threadId, id -> {
-            log.info("Creating new WebDriver for thread {}", id);
-            return createWebDriver();
-        });
+        
+        // Check if a WebDriver already exists for this thread
+        WebDriver driver = driverMap.get(threadId);
+        
+        // If no WebDriver exists, create a new one
+        if (driver == null) {
+            driver = createWebDriver();
+            driverMap.put(threadId, driver);
+            log.info("Created new WebDriver instance for thread {}", threadId);
+        } else {
+            log.debug("Reusing existing WebDriver instance for thread {}", threadId);
+        }
+        
+        // Set the current thread's driver
+        currentDriver.set(driver);
+        
+        return driver;
     }
     
     /**
-     * Close the WebDriver for the current thread and remove it from the map.
+     * Close the WebDriver instance for the current thread.
+     * This method can be called safely even if no WebDriver exists.
      */
     public void closeDriver() {
+        // Get current thread ID
         long threadId = Thread.currentThread().getId();
+        
+        // Get the WebDriver for this thread
         WebDriver driver = driverMap.remove(threadId);
+        
+        // If a WebDriver exists, close it
         if (driver != null) {
             try {
-                log.info("Closing WebDriver for thread {}", threadId);
                 driver.quit();
+                log.info("Closed WebDriver instance for thread {}", threadId);
             } catch (Exception e) {
-                log.warn("Error closing WebDriver: {}", e.getMessage());
+                log.warn("Error closing WebDriver for thread {}: {}", threadId, e.getMessage());
             }
         }
+        
+        // Remove the current thread's driver
+        currentDriver.remove();
     }
     
     /**
-     * Close all WebDriver instances.
-     * This method should be called during application shutdown.
+     * Close all WebDriver instances across all threads.
+     * This should be called during application shutdown.
      */
     public void closeAllDrivers() {
         log.info("Closing all WebDriver instances ({})", driverMap.size());
-        for (WebDriver driver : driverMap.values()) {
+        for (Map.Entry<Long, WebDriver> entry : driverMap.entrySet()) {
             try {
-                driver.quit();
+                entry.getValue().quit();
+                log.debug("Closed WebDriver for thread {}", entry.getKey());
             } catch (Exception e) {
-                log.warn("Error closing WebDriver: {}", e.getMessage());
+                log.warn("Error closing WebDriver for thread {}: {}", entry.getKey(), e.getMessage());
             }
         }
         driverMap.clear();
+        currentDriver.remove();
+        log.info("All WebDriver instances closed");
     }
     
     /**

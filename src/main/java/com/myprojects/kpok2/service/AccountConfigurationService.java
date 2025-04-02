@@ -41,12 +41,15 @@ public class AccountConfigurationService {
     private static final String NAVIGATION_PREFIX = "testcenter.navigation";
     private static final String MAX_THREADS_SUFFIX = ".max-threads";
     private static final String THREAD_TIMEOUT_SUFFIX = ".thread-timeout-seconds";
+    private static final String ITERATION_COUNT_SUFFIX = ".iteration-count";
     private static final int DEFAULT_MAX_THREADS = 2;
     private static final int DEFAULT_THREAD_TIMEOUT = 2;
+    private static final int DEFAULT_ITERATION_COUNT = 10; // Default 10 iterations
     
     // Current navigation settings
     private int maxThreads = DEFAULT_MAX_THREADS;
     private int threadTimeout = DEFAULT_THREAD_TIMEOUT;
+    private int iterationCount = DEFAULT_ITERATION_COUNT;
 
     @Autowired
     public AccountConfigurationService(
@@ -152,6 +155,7 @@ public class AccountConfigurationService {
     private void loadNavigationSettings() {
         String maxThreadsKey = NAVIGATION_PREFIX + MAX_THREADS_SUFFIX;
         String threadTimeoutKey = NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX;
+        String iterationCountKey = NAVIGATION_PREFIX + ITERATION_COUNT_SUFFIX;
         
         try {
             String maxThreadsStr = properties.getProperty(maxThreadsKey);
@@ -168,12 +172,21 @@ public class AccountConfigurationService {
                 threadTimeout = DEFAULT_THREAD_TIMEOUT;
             }
             
-            log.info("Loaded navigation settings: maxThreads={}, threadTimeout={}", maxThreads, threadTimeout);
+            String iterationCountStr = properties.getProperty(iterationCountKey);
+            if (iterationCountStr != null && !iterationCountStr.isEmpty()) {
+                iterationCount = Integer.parseInt(iterationCountStr);
+            } else {
+                iterationCount = DEFAULT_ITERATION_COUNT;
+            }
+            
+            log.info("Loaded navigation settings: maxThreads={}, threadTimeout={}, iterationCount={}", 
+                     maxThreads, threadTimeout, iterationCount);
         } catch (NumberFormatException e) {
             maxThreads = DEFAULT_MAX_THREADS;
             threadTimeout = DEFAULT_THREAD_TIMEOUT;
-            log.warn("Error parsing navigation settings, using defaults: maxThreads={}, threadTimeout={}", 
-                     maxThreads, threadTimeout);
+            iterationCount = DEFAULT_ITERATION_COUNT;
+            log.warn("Error parsing navigation settings, using defaults: maxThreads={}, threadTimeout={}, iterationCount={}", 
+                     maxThreads, threadTimeout, iterationCount);
         }
     }
     
@@ -220,6 +233,7 @@ public class AccountConfigurationService {
             // Add default navigation settings
             properties.setProperty(NAVIGATION_PREFIX + MAX_THREADS_SUFFIX, String.valueOf(DEFAULT_MAX_THREADS));
             properties.setProperty(NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX, String.valueOf(DEFAULT_THREAD_TIMEOUT));
+            properties.setProperty(NAVIGATION_PREFIX + ITERATION_COUNT_SUFFIX, String.valueOf(DEFAULT_ITERATION_COUNT));
             
         } catch (Exception e) {
             log.error("Failed to load accounts from environment", e);
@@ -237,12 +251,13 @@ public class AccountConfigurationService {
             // Add navigation settings to properties
             properties.setProperty(NAVIGATION_PREFIX + MAX_THREADS_SUFFIX, String.valueOf(maxThreads));
             properties.setProperty(NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX, String.valueOf(DEFAULT_THREAD_TIMEOUT));
+            properties.setProperty(NAVIGATION_PREFIX + ITERATION_COUNT_SUFFIX, String.valueOf(iterationCount));
             
             // Save properties
             saveProperties();
             
-            log.info("Saved {} accounts to configuration with navigation settings: maxThreads={}, threadTimeout={}", 
-                    accounts.size(), maxThreads, DEFAULT_THREAD_TIMEOUT);
+            log.info("Saved {} accounts to configuration with navigation settings: maxThreads={}, threadTimeout={}, iterationCount={}", 
+                    accounts.size(), maxThreads, DEFAULT_THREAD_TIMEOUT, iterationCount);
         } catch (Exception e) {
             log.error("Failed to save accounts", e);
             throw new RuntimeException("Failed to save accounts", e);
@@ -361,6 +376,26 @@ public class AccountConfigurationService {
      */
     public int getThreadTimeout() {
         return DEFAULT_THREAD_TIMEOUT;
+    }
+    
+    /**
+     * Get the configured iteration count
+     * @return the iteration count
+     */
+    public int getIterationCount() {
+        return iterationCount;
+    }
+    
+    /**
+     * Set the iteration count
+     * @param iterationCount the number of parsing iterations to perform
+     */
+    public void setIterationCount(int iterationCount) {
+        if (iterationCount < 1) {
+            this.iterationCount = 1;
+        } else {
+            this.iterationCount = iterationCount;
+        }
     }
     
     /**

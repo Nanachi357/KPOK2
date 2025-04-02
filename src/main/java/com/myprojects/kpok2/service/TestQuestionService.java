@@ -28,17 +28,19 @@ public class TestQuestionService {
 
         for (ParsedTestQuestionDto dto : questions) {
             TestQuestion entity = testQuestionMapper.toEntity(dto);
+            String hash = entity.getQuestionHash();
 
-            if (!repository.existsByQuestionHash(entity.getQuestionHash())) {
+            if (!repository.existsByQuestionHash(hash)) {
                 savedQuestions.add(repository.save(entity));
-                log.debug("Saved new question: {}", entity.getQuestionText());
+                log.debug("Saved new question: [hash={}] {}", hash, entity.getQuestionText());
             } else {
-                log.debug("Skipped duplicate question: {}", entity.getQuestionText());
+                log.debug("Skipped duplicate question: [hash={}] {}", hash, entity.getQuestionText());
             }
         }
 
         int newQuestionsCount = savedQuestions.size();
-        log.info("Saved {} new questions", newQuestionsCount);
+        log.info("Saved {} new questions out of {} total questions processed", 
+                newQuestionsCount, questions.size());
         
         // Update parsing statistics with information about new questions
         parsingStatistics.incrementNewQuestions(newQuestionsCount);

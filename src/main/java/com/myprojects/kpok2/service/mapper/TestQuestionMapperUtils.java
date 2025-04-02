@@ -45,11 +45,19 @@ public class TestQuestionMapperUtils {
             throw new IllegalArgumentException("Cannot generate hash from null values");
         }
         
-        List<String> sortedAnswers = new ArrayList<>(answers);
-        Collections.sort(sortedAnswers);
+        // Clean prefix patterns (like "a.", "b.") from answers before sorting
+        List<String> cleanedAnswers = new ArrayList<>();
+        for (String answer : answers) {
+            // Remove prefixes like "a.", "b.", etc. from the beginning of answers
+            String cleaned = answer.replaceAll("^[a-z]\\.", "").trim();
+            cleanedAnswers.add(cleaned);
+        }
+        
+        // Sort cleaned answers to ensure consistent ordering
+        Collections.sort(cleanedAnswers);
         
         String combinedData = normalizedText + "|" + 
-                            String.join("|", sortedAnswers) + "|" + 
+                            String.join("|", cleanedAnswers) + "|" + 
                             normalizedCorrectAnswer;
         
         try {

@@ -25,6 +25,9 @@ public class TestNormalizer {
         // First apply Unicode normalization (NFD) to handle diacritics
         String normalized = Normalizer.normalize(text, Normalizer.Form.NFD);
         
+        // Remove answer prefixes (like "a.", "b.", etc.) from the beginning of text
+        normalized = normalized.replaceAll("^[a-z]\\.", "").trim();
+        
         // Then apply custom normalization rules
         return normalized.toLowerCase()
                 .replaceAll("[^а-яa-z0-9іїєґ]", " ") // Include Ukrainian letters

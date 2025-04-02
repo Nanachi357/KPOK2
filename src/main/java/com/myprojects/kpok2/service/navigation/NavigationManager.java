@@ -1,6 +1,7 @@
 package com.myprojects.kpok2.service.navigation;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
+import com.myprojects.kpok2.service.AccountConfigurationService;
 import com.myprojects.kpok2.service.parser.TestParsingRunner;
 import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ public class NavigationManager {
     private final NavigationSessionFactory sessionFactory;
     private final TestParsingRunner testParsingRunner;
     private final TestParsingStatistics parsingStatistics;
+    private final AccountConfigurationService accountService;
     private final AtomicBoolean isRunning;
     private CompletableFuture<Void> navigationFuture;
 
@@ -25,13 +27,15 @@ public class NavigationManager {
             TestCenterNavigator navigator,
             NavigationSessionFactory sessionFactory,
             TestParsingRunner testParsingRunner,
-            TestParsingStatistics parsingStatistics
+            TestParsingStatistics parsingStatistics,
+            AccountConfigurationService accountService
     ) {
         this.properties = properties;
         this.navigator = navigator;
         this.sessionFactory = sessionFactory;
         this.testParsingRunner = testParsingRunner;
         this.parsingStatistics = parsingStatistics;
+        this.accountService = accountService;
         this.isRunning = new AtomicBoolean(false);
     }
 
@@ -47,7 +51,8 @@ public class NavigationManager {
                     navigator,
                     sessionFactory,
                     testParsingRunner,
-                    parsingStatistics
+                    parsingStatistics,
+                    accountService
             );
 
             log.info("Starting navigation process...");

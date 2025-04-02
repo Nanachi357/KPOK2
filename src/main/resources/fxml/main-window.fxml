@@ -39,6 +39,7 @@
         <HBox spacing="10" alignment="CENTER_LEFT">
             <Button fx:id="startStopButton" text="Start" onAction="#onStartStopClick"/>
             <Label fx:id="statusLabel" text="Status: Stopped"/>
+            <Label fx:id="iterationLabel" text="Iterations: 0/0"/>
         </HBox>
 
         <!-- Logs Area -->

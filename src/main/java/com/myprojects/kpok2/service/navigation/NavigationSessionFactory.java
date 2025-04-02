@@ -99,7 +99,10 @@ public class NavigationSessionFactory {
         AccountCredentials account = accountManager.acquireAccount();
         WebDriver webDriver = webDriverFactory.getDriver();
         
-        return new NavigationSession(webDriverFactory, accountManager, webDriver, account);
+        // Initialize the session with reusable properties
+        NavigationSession session = new NavigationSession(webDriverFactory, accountManager, webDriver, account);
+        log.debug("Created new session with account: {} and driver: {}", account.getUsername(), webDriver.hashCode());
+        return session;
     }
     
     /**

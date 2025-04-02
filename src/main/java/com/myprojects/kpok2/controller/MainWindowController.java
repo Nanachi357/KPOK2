@@ -2,6 +2,7 @@ package com.myprojects.kpok2.controller;
 
 import com.myprojects.kpok2.config.logging.UiLogAppender;
 import com.myprojects.kpok2.service.navigation.NavigationManager;
+import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -26,6 +27,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class MainWindowController {
@@ -35,12 +39,18 @@ public class MainWindowController {
     private final MessageSource messageSource;
     private final NavigationManager navigationManager;
     private final ApplicationContext applicationContext;
+    private final TestParsingStatistics parsingStatistics;
+    
+    private ScheduledExecutorService uiUpdateScheduler;
     
     @FXML
     private Button startStopButton;
     
     @FXML
     private Label statusLabel;
+    
+    @FXML
+    private Label iterationLabel;
     
     @FXML
     private TextArea logsArea;
@@ -54,10 +64,14 @@ public class MainWindowController {
     @Value("${ui.window.height}")
     private double windowHeight;
     
-    public MainWindowController(MessageSource messageSource, NavigationManager navigationManager, ApplicationContext applicationContext) {
+    public MainWindowController(MessageSource messageSource, 
+                               NavigationManager navigationManager, 
+                               ApplicationContext applicationContext,
+                               TestParsingStatistics parsingStatistics) {
         this.messageSource = messageSource;
         this.navigationManager = navigationManager;
         this.applicationContext = applicationContext;
+        this.parsingStatistics = parsingStatistics;
     }
     
     @FXML
@@ -70,12 +84,38 @@ public class MainWindowController {
         
         // Initial setup
         updateStatus();
+        updateIterationCount();
+        
+        // Start UI update scheduler
+        startUiUpdateScheduler();
         
         // Apply log settings from preferences
         LogConfigController.applySettingsFromPreferences();
         
         // Log application startup
         log.info("Application started");
+    }
+    
+    private void startUiUpdateScheduler() {
+        if (uiUpdateScheduler != null) {
+            uiUpdateScheduler.shutdownNow();
+        }
+        
+        uiUpdateScheduler = Executors.newSingleThreadScheduledExecutor();
+        uiUpdateScheduler.scheduleAtFixedRate(this::updateIterationCount, 1, 1, TimeUnit.SECONDS);
+    }
+    
+    private void updateIterationCount() {
+        int completed = parsingStatistics.getCompletedIterationsCount();
+        int total = parsingStatistics.getTotalIterationsNeeded();
+        
+        Platform.runLater(() -> {
+            if (total <= 0) {
+                iterationLabel.setText("Iterations: " + completed + "/∞");
+            } else {
+                iterationLabel.setText("Iterations: " + completed + "/" + total);
+            }
+        });
     }
     
     @FXML
@@ -139,6 +179,12 @@ public class MainWindowController {
     public void onExitClick() {
         // Shutdown log scheduler
         LogConfigController.shutdown();
+        
+        // Shutdown UI update scheduler
+        if (uiUpdateScheduler != null) {
+            uiUpdateScheduler.shutdownNow();
+            uiUpdateScheduler = null;
+        }
         
         Platform.exit();
     }

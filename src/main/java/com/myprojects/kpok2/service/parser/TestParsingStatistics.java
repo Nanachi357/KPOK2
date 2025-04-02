@@ -21,6 +21,8 @@ public class TestParsingStatistics {
     private final AtomicInteger successCount;
     private final AtomicInteger failedCount;
     private final AtomicInteger newQuestionsCount;
+    private final AtomicInteger completedIterationsCount;
+    private final AtomicInteger totalIterationsNeeded;
     
     // Map account username to number of pages parsed by that account
     private final Map<String, Integer> accountsUsed;
@@ -36,9 +38,80 @@ public class TestParsingStatistics {
         this.successCount = new AtomicInteger(0);
         this.failedCount = new AtomicInteger(0);
         this.newQuestionsCount = new AtomicInteger(0);
+        this.completedIterationsCount = new AtomicInteger(0);
+        this.totalIterationsNeeded = new AtomicInteger(0);
         this.accountsUsed = new ConcurrentHashMap<>();
         this.sessionHistory = new ArrayList<>();
         this.lastResetTime = LocalDateTime.now();
+    }
+
+    /**
+     * Set the total number of iterations needed
+     * @param count the total number of iterations to perform
+     */
+    public void setTotalIterationsNeeded(int count) {
+        totalIterationsNeeded.set(count);
+        if (count <= 0) {
+            log.info("Iteration mode set to: unlimited");
+        } else {
+            log.info("Total iterations needed set to: {}", count);
+        }
+    }
+    
+    /**
+     * Increment the count of completed iterations
+     * @return the new count of completed iterations
+     */
+    public int incrementCompletedIterations() {
+        int newValue = completedIterationsCount.incrementAndGet();
+        int total = totalIterationsNeeded.get();
+        
+        if (total <= 0) {
+            log.info("Completed iteration {} (unlimited mode)", newValue);
+        } else {
+            log.info("Completed iteration {}/{} ({}%)", 
+                     newValue, total, 
+                     Math.round((newValue * 100.0) / total));
+        }
+        
+        return newValue;
+    }
+    
+    /**
+     * Check if more iterations are needed
+     * @return true if more iterations should be performed, false otherwise
+     */
+    public boolean isMoreIterationsNeeded() {
+        // If totalIterationsNeeded is 0, it means unlimited iterations
+        if (totalIterationsNeeded.get() <= 0) {
+            return true;
+        }
+        
+        boolean result = completedIterationsCount.get() < totalIterationsNeeded.get();
+        
+        if (!result) {
+            log.info("Target iteration count reached: {}/{}", 
+                     completedIterationsCount.get(), 
+                     totalIterationsNeeded.get());
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Get the count of completed iterations
+     * @return the current count of completed iterations
+     */
+    public int getCompletedIterationsCount() {
+        return completedIterationsCount.get();
+    }
+    
+    /**
+     * Get the total iterations needed
+     * @return the total number of iterations that need to be performed
+     */
+    public int getTotalIterationsNeeded() {
+        return totalIterationsNeeded.get();
     }
 
     public void updateStats(TestParsingResultDto result) {
@@ -87,11 +160,13 @@ public class TestParsingStatistics {
     }
 
     public void logProgress() {
-        log.info("Progress: processed={}, success={}, failed={}, newQuestions={}",
+        log.info("Progress: processed={}, success={}, failed={}, newQuestions={}, iterations={}/{}",
                 processedCount.get(),
                 successCount.get(),
                 failedCount.get(),
-                newQuestionsCount.get()
+                newQuestionsCount.get(),
+                completedIterationsCount.get(),
+                totalIterationsNeeded.get() > 0 ? totalIterationsNeeded.get() : "unlimited"
         );
         
         if (!accountsUsed.isEmpty()) {
@@ -108,6 +183,8 @@ public class TestParsingStatistics {
                 successCount.get(),
                 failedCount.get(),
                 newQuestionsCount.get(),
+                completedIterationsCount.get(),
+                totalIterationsNeeded.get(),
                 new HashMap<>(accountsUsed),
                 lastResetTime
         );
@@ -128,6 +205,8 @@ public class TestParsingStatistics {
         successCount.set(0);
         failedCount.set(0);
         newQuestionsCount.set(0);
+        completedIterationsCount.set(0);
+        // Don't reset totalIterationsNeeded, as we want to keep the setting
         accountsUsed.clear();
         sessionHistory.clear();
         lastResetTime = LocalDateTime.now();
@@ -154,6 +233,8 @@ public class TestParsingStatistics {
         private final int successCount;
         private final int failedCount;
         private final int newQuestionsCount;
+        private final int completedIterations;
+        private final int totalIterationsNeeded;
         private final Map<String, Integer> accountsUsed;
         private final LocalDateTime since;
     }

@@ -1,6 +1,7 @@
 package com.myprojects.kpok2.service.navigation;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
+import com.myprojects.kpok2.service.AccountConfigurationService;
 import com.myprojects.kpok2.service.parser.TestParsingRunner;
 import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class NavigationService {
     private final NavigationSessionFactory sessionFactory;
     private final TestParsingRunner testParsingRunner;
     private final TestParsingStatistics parsingStatistics;
+    private final AccountConfigurationService accountService;
     
     private ExecutorService executorService;
     private final List<Future<?>> runningTasks = new ArrayList<>();
@@ -52,6 +54,15 @@ public class NavigationService {
         }
         
         log.info("Initializing navigation with {} threads", threadCount);
+        
+        // Set up iteration counting
+        int iterationCount = accountService.getIterationCount();
+        parsingStatistics.setTotalIterationsNeeded(iterationCount);
+        if (iterationCount <= 0) {
+            log.info("Running in unlimited iteration mode");
+        } else {
+            log.info("Target iteration count set to: {}", iterationCount);
+        }
         
         // Create thread pool
         executorService = Executors.newFixedThreadPool(threadCount);
@@ -111,13 +122,91 @@ public class NavigationService {
             Thread.currentThread().setName(threadName);
             log.info("Starting navigation task: {}", threadName);
             
-            try (NavigationSession session = sessionFactory.createSession()) {
-                log.info("{}: Acquired session with account: {}", 
-                        threadName, session.getAccount().getUsername());
-                
-                String username = session.getAccount().getUsername();
-                WebDriver driver = session.getWebDriver();
-                
+            NavigationSession session = null;
+            
+            try {
+                // Main iteration loop
+                while (!Thread.currentThread().isInterrupted() && parsingStatistics.isMoreIterationsNeeded()) {
+                    // Before starting a new iteration, check again if we should continue
+                    if (!parsingStatistics.isMoreIterationsNeeded()) {
+                        log.info("{}: No more iterations needed, exiting loop", threadName);
+                        break;
+                    }
+                    
+                    // Create a new session only if we don't have one
+                    if (session == null) {
+                        try {
+                            session = sessionFactory.createSession();
+                            log.info("{}: Created new navigation session with account: {}",
+                                    threadName, session.getAccount().getUsername());
+                        } catch (Exception e) {
+                            log.error("{}: Failed to create session: {}", threadName, e.getMessage());
+                            // Wait a bit before retrying
+                            Thread.sleep(5000);
+                            continue;
+                        }
+                    }
+                    
+                    // Run one iteration of the parsing process
+                    boolean iterationSuccess = runOneIteration(session);
+                    
+                    if (iterationSuccess) {
+                        // Count this as a completed iteration
+                        int completedCount = parsingStatistics.incrementCompletedIterations();
+                        int totalNeeded = parsingStatistics.getTotalIterationsNeeded();
+                        
+                        if (totalNeeded > 0) {
+                            log.info("{}: Completed iteration {}/{}", threadName, completedCount, totalNeeded);
+                        } else {
+                            log.info("{}: Completed iteration {} (unlimited mode)", threadName, completedCount);
+                        }
+                        
+                        // Check if we've reached the total
+                        if (!parsingStatistics.isMoreIterationsNeeded()) {
+                            log.info("{}: Target iteration count reached, exiting loop", threadName);
+                            break;
+                        }
+                    } else {
+                        log.warn("{}: Iteration failed, will retry with new session", threadName);
+                        // Close the failed session and create a new one on next iteration
+                        if (session != null) {
+                            try {
+                                session.close();
+                            } catch (Exception e) {
+                                log.warn("{}: Error closing failed session: {}", threadName, e.getMessage());
+                            }
+                            session = null;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("{}: Unexpected error in navigation task: {}", threadName, e.getMessage(), e);
+            } finally {
+                // Ensure the session is closed when we're done
+                if (session != null) {
+                    try {
+                        session.close();
+                        log.info("{}: Closed navigation session", threadName);
+                    } catch (Exception e) {
+                        log.warn("{}: Error closing session: {}", threadName, e.getMessage());
+                    }
+                }
+                log.info("{}: Navigation task completed", threadName);
+            }
+            
+            return true;
+        }
+        
+        /**
+         * Run one iteration of the parsing process
+         * @param session The navigation session to use
+         * @return true if the iteration was successful, false otherwise
+         */
+        private boolean runOneIteration(NavigationSession session) {
+            String username = session.getAccount().getUsername();
+            WebDriver driver = session.getWebDriver();
+            
+            try {
                 // Step 1: Authenticate
                 try {
                     boolean authSuccess = navigator.authenticate(session);
@@ -274,29 +363,13 @@ public class NavigationService {
                 log.info("{}: FINAL RESULT URL for account {}: {}", 
                         threadName, username, session.getCurrentUrl());
                 
-                // Generate and log URLs for all result pages
-                if (session.hasActiveAttempt()) {
-                    String baseResultUrl = "https://test.testcentr.org.ua/mod/quiz/review.php?attempt=" + 
-                                          session.getAttemptId() + "&cmid=109";
-                    String page1Url = baseResultUrl + "&page=1";
-                    String page2Url = baseResultUrl + "&page=2";
+                // Process the test results
+                log.info("{}: Checking for result page URLs", threadName);
+                List<String> resultPageUrls = session.getResultPageUrls();
+                if (resultPageUrls != null && !resultPageUrls.isEmpty()) {
+                    log.info("{}: Found {} result page URLs to process for account: {}", 
+                            threadName, resultPageUrls.size(), username);
                     
-                    // Create a list of result page URLs
-                    List<String> resultPageUrls = java.util.List.of(baseResultUrl, page1Url, page2Url);
-                    
-                    // Store URLs in session
-                    session.setResultPageUrls(resultPageUrls);
-                    
-                    // Log all result page URLs
-                    log.info("{}: Result page URLs for account {}:", threadName, username);
-                    log.info("{}: Base Result URL: {}", threadName, baseResultUrl);
-                    log.info("{}: Page 1 URL: {}", threadName, page1Url);
-                    log.info("{}: Page 2 URL: {}", threadName, page2Url);
-                    
-                    // Parse the result pages using the same WebDriver session
-                    log.info("{}: Starting parsing of result pages for account {}", threadName, username);
-                    
-                    // Process each result page URL
                     for (String resultPageUrl : resultPageUrls) {
                         try {
                             log.info("{}: Processing result page URL: {}", threadName, resultPageUrl);
@@ -329,8 +402,6 @@ public class NavigationService {
             } catch (Exception e) {
                 log.error("{}: Unexpected error in navigation task: {}", threadName, e.getMessage(), e);
                 return false;
-            } finally {
-                log.info("{}: Navigation task completed", threadName);
             }
         }
     }

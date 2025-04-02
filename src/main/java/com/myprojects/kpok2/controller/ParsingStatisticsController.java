@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -36,6 +37,9 @@ public class ParsingStatisticsController {
     
     @FXML
     private Label newQuestionsLabel;
+    
+    @FXML
+    private Label iterationsLabel;
     
     @FXML
     private Label sinceLabel;
@@ -77,51 +81,68 @@ public class ParsingStatisticsController {
         this.stage = stage;
     }
     
+    /**
+     * Initialize the scene
+     */
     @FXML
     public void initialize() {
-        // Format for session history table
-        accountColumn.setCellValueFactory(data -> 
-            new SimpleStringProperty(data.getValue().getAccountUsername()));
-            
-        timestampColumn.setCellValueFactory(data -> 
-            new SimpleStringProperty(data.getValue().getTimestamp().format(DATE_TIME_FORMATTER)));
-            
-        pagesColumn.setCellValueFactory(data -> 
-            new SimpleIntegerProperty(data.getValue().getPagesParsed()).asObject());
-            
-        questionsColumn.setCellValueFactory(data -> 
-            new SimpleIntegerProperty(data.getValue().getNewQuestionsFound()).asObject());
-            
-        // Format for account statistics table
-        accountNameColumn.setCellValueFactory(data -> 
-            new SimpleStringProperty(data.getValue().getUsername()));
-            
-        pagesParsedColumn.setCellValueFactory(data -> 
-            new SimpleIntegerProperty(data.getValue().getPagesParsed()).asObject());
-            
-        // Load data
+        // Configure table columns
+        timestampColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                data.getValue().getTimestamp().format(DATE_TIME_FORMATTER)));
+        
+        accountColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                data.getValue().getAccountUsername()));
+        
+        pagesColumn.setCellValueFactory(data -> new SimpleIntegerProperty(
+                data.getValue().getPagesParsed()).asObject());
+        
+        questionsColumn.setCellValueFactory(data -> new SimpleIntegerProperty(
+                data.getValue().getNewQuestionsFound()).asObject());
+        
+        // Configure account statistics table
+        accountNameColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                data.getValue().getUsername()));
+        
+        pagesParsedColumn.setCellValueFactory(data -> new SimpleIntegerProperty(
+                data.getValue().getPagesParsed()).asObject());
+        
         refreshData();
     }
     
+    /**
+     * Refresh data from statistics service
+     */
+    @FXML
     public void refreshData() {
-        // Get current statistics
         StatisticsData stats = statisticsService.getCurrentStats();
         
-        // Update summary labels
+        // Update summary data
         totalProcessedLabel.setText(String.valueOf(stats.getProcessedCount()));
         successLabel.setText(String.valueOf(stats.getSuccessCount()));
         failedLabel.setText(String.valueOf(stats.getFailedCount()));
         newQuestionsLabel.setText(String.valueOf(stats.getNewQuestionsCount()));
+        
+        // Format iterations info
+        String iterationsText;
+        if (stats.getTotalIterationsNeeded() <= 0) {
+            iterationsText = stats.getCompletedIterations() + " / ∞";
+        } else {
+            iterationsText = stats.getCompletedIterations() + " / " + stats.getTotalIterationsNeeded();
+        }
+        iterationsLabel.setText(iterationsText);
+        
+        // Update "since" info
         sinceLabel.setText(stats.getSince().format(DATE_TIME_FORMATTER));
         
         // Update session history table
         List<ParsingSessionInfo> sessionHistory = statisticsService.getSessionHistory();
         sessionTable.setItems(FXCollections.observableArrayList(sessionHistory));
         
-        // Update account statistics table
-        List<AccountStat> accountStats = stats.getAccountsUsed().entrySet().stream()
-                .map(entry -> new AccountStat(entry.getKey(), entry.getValue()))
-                .collect(Collectors.toList());
+        // Update account stats table
+        List<AccountStat> accountStats = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : stats.getAccountsUsed().entrySet()) {
+            accountStats.add(new AccountStat(entry.getKey(), entry.getValue()));
+        }
         accountTable.setItems(FXCollections.observableArrayList(accountStats));
     }
     
@@ -154,9 +175,9 @@ public class ParsingStatisticsController {
     }
     
     /**
-     * Helper class to represent account statistics for the table
+     * Helper class to represent account statistics
      */
-    public static class AccountStat {
+    private static class AccountStat {
         private final String username;
         private final int pagesParsed;
         
