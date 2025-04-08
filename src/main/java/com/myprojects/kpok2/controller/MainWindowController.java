@@ -41,6 +41,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.prefs.Preferences;
 import java.util.Arrays;
 import java.nio.file.Files;
+import com.myprojects.kpok2.util.JsonConverter;
+import javafx.scene.control.CheckBox;
 
 @Component
 public class MainWindowController implements TestQuestionService.TestQuestionListener {
@@ -58,6 +60,9 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     
     @Autowired
     private TestQuestionService testQuestionService;
+    
+    @Autowired
+    private JsonConverter jsonConverter;
     
     @FXML
     private Button startStopButton;
@@ -86,6 +91,9 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     private static final String PREF_AUTOSAVE_NEW_TESTS_ENABLED = "autosave_new_tests_enabled";
     private static final String PREF_AUTOSAVE_NEW_TESTS_INTERVAL = "autosave_new_tests_interval";
     private static ScheduledFuture<?> newTestsScheduledTask;
+    
+    @FXML
+    private CheckBox numberTestsCheckBox;
     
     public MainWindowController(MessageSource messageSource, 
                                NavigationManager navigationManager, 
@@ -420,10 +428,27 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
      * Save new tests to a file
      */
     public boolean saveNewTestsToFile(File file) {
-        try (FileWriter fileWriter = new FileWriter(file)) {
-            fileWriter.write(newTestsArea.getText());
-            log.info("New tests saved to file: {}", file.getAbsolutePath());
-            return true;
+        try {
+            String content = newTestsArea.getText();
+            if (numberTestsCheckBox.isSelected()) {
+                // Split content by test separator
+                String[] tests = content.split("---\n");
+                StringBuilder numberedContent = new StringBuilder();
+                int testNumber = 1;
+                
+                for (String test : tests) {
+                    if (!test.trim().isEmpty()) {
+                        numberedContent.append(testNumber++).append(". ").append(test.trim()).append("\n---\n");
+                    }
+                }
+                content = numberedContent.toString();
+            }
+            
+            try (FileWriter fileWriter = new FileWriter(file)) {
+                fileWriter.write(content);
+                log.info("New tests saved to file: {}", file.getAbsolutePath());
+                return true;
+            }
         } catch (Exception e) {
             log.error("Error saving new tests to file: {}", e.getMessage(), e);
             return false;
@@ -567,6 +592,54 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
             
         } catch (Exception e) {
             log.error("Error clearing new tests files: {}", e.getMessage(), e);
+        }
+    }
+    
+    @FXML
+    public void onExportAllTestsClick() {
+        try {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Export All Tests");
+            fileChooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("Text Files", "*.txt")
+            );
+            fileChooser.setInitialFileName("all_tests_" + 
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss")) + 
+                    ".txt");
+            
+            File file = fileChooser.showSaveDialog(newTestsArea.getScene().getWindow());
+            
+            if (file != null) {
+                List<TestQuestion> allQuestions = testQuestionService.getAllQuestions();
+                if (allQuestions.isEmpty()) {
+                    log.warn("No tests found in the database");
+                    return;
+                }
+                
+                StringBuilder content = new StringBuilder();
+                boolean shouldNumber = numberTestsCheckBox.isSelected();
+                int testNumber = 1;
+                
+                for (TestQuestion question : allQuestions) {
+                    List<String> answers = jsonConverter.getAnswersFromJson(question);
+                    if (shouldNumber) {
+                        content.append(testNumber++).append(". ");
+                    }
+                    content.append(question.getQuestionText()).append("\n")
+                           .append("Answer Options:\n")
+                           .append(answers.stream().map(answer -> "  " + answer).collect(Collectors.joining("\n")))
+                           .append("\n")
+                           .append("Correct Answer: ").append(question.getCorrectAnswer())
+                           .append("\n---\n");
+                }
+                
+                try (FileWriter fileWriter = new FileWriter(file)) {
+                    fileWriter.write(content.toString());
+                    log.info("All tests exported to file: {}", file.getAbsolutePath());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error exporting all tests: {}", e.getMessage(), e);
         }
     }
 } 

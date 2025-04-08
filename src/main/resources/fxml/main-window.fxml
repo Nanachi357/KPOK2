@@ -50,8 +50,13 @@
                 <VBox>
                     <!-- New Tests Area -->
                     <TextArea fx:id="newTestsArea" editable="false" wrapText="true" VBox.vgrow="ALWAYS"/>
-                    <!-- Save Button -->
+                    <!-- Save Options -->
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <CheckBox fx:id="numberTestsCheckBox" text="%checkbox.number.tests"/>
+                    </HBox>
+                    <!-- Save Buttons -->
                     <HBox alignment="CENTER_RIGHT" spacing="10">
+                        <Button text="%button.export.all" onAction="#onExportAllTestsClick"/>
                         <Button text="%button.save" onAction="#onSaveNewTestsClick"/>
                     </HBox>
                 </VBox>
