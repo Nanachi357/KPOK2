@@ -25,10 +25,6 @@
             <MenuItem text="%menu.logs.clear" onAction="#onClearLogsClick"/>
             <MenuItem text="%menu.logs.save" onAction="#onSaveLogsClick"/>
         </Menu>
-        <Menu text="%menu.help">
-            <MenuItem text="%menu.help.updates" onAction="#onCheckUpdatesClick"/>
-            <MenuItem text="%menu.help.about" onAction="#onAboutClick"/>
-        </Menu>
     </MenuBar>
 
     <VBox spacing="10">
@@ -42,8 +38,25 @@
             <Label fx:id="iterationLabel" text="Iterations: 0/0"/>
         </HBox>
 
-        <!-- Logs Area -->
-        <TextArea fx:id="logsArea" editable="false" wrapText="true" VBox.vgrow="ALWAYS"/>
+        <!-- TabPane for Logs and New Tests -->
+        <TabPane VBox.vgrow="ALWAYS">
+            <Tab text="%tab.logs" closable="false">
+                <VBox>
+                    <!-- Logs Area -->
+                    <TextArea fx:id="logsArea" editable="false" wrapText="true" VBox.vgrow="ALWAYS"/>
+                </VBox>
+            </Tab>
+            <Tab text="%tab.newtests" closable="false">
+                <VBox>
+                    <!-- New Tests Area -->
+                    <TextArea fx:id="newTestsArea" editable="false" wrapText="true" VBox.vgrow="ALWAYS"/>
+                    <!-- Save Button -->
+                    <HBox alignment="CENTER_RIGHT" spacing="10">
+                        <Button text="%button.save" onAction="#onSaveNewTestsClick"/>
+                    </HBox>
+                </VBox>
+            </Tab>
+        </TabPane>
     </VBox>
 
     <!-- Status Bar -->

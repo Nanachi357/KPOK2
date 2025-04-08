@@ -5,6 +5,7 @@ import com.myprojects.kpok2.repository.TestQuestionRepository;
 import com.myprojects.kpok2.service.mapper.TestQuestionMapper;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import com.myprojects.kpok2.service.parser.TestParsingStatistics;
+import com.myprojects.kpok2.util.JsonConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
 @Service
@@ -21,6 +23,21 @@ public class TestQuestionService {
     private final TestQuestionRepository repository;
     private final TestQuestionMapper testQuestionMapper;
     private final TestParsingStatistics parsingStatistics;
+    private final JsonConverter jsonConverter;
+    
+    private final List<TestQuestionListener> listeners = new CopyOnWriteArrayList<>();
+    
+    public interface TestQuestionListener {
+        void onNewQuestion(TestQuestion question, List<String> answers);
+    }
+    
+    public void addListener(TestQuestionListener listener) {
+        listeners.add(listener);
+    }
+    
+    public void removeListener(TestQuestionListener listener) {
+        listeners.remove(listener);
+    }
 
     @Transactional
     public List<TestQuestion> saveUniqueQuestions(List<ParsedTestQuestionDto> questions) {
@@ -31,8 +48,15 @@ public class TestQuestionService {
             String hash = entity.getQuestionHash();
 
             if (!repository.existsByQuestionHash(hash)) {
-                savedQuestions.add(repository.save(entity));
+                TestQuestion savedQuestion = repository.save(entity);
+                savedQuestions.add(savedQuestion);
                 log.debug("Saved new question: [hash={}] {}", hash, entity.getQuestionText());
+                
+                // Notify listeners about new question
+                List<String> answers = jsonConverter.getAnswersFromJson(entity);
+                for (TestQuestionListener listener : listeners) {
+                    listener.onNewQuestion(savedQuestion, answers);
+                }
             } else {
                 log.debug("Skipped duplicate question: [hash={}] {}", hash, entity.getQuestionText());
             }
@@ -42,7 +66,6 @@ public class TestQuestionService {
         log.info("Saved {} new questions out of {} total questions processed", 
                 newQuestionsCount, questions.size());
         
-        // Update parsing statistics with information about new questions
         parsingStatistics.incrementNewQuestions(newQuestionsCount);
         
         return savedQuestions;

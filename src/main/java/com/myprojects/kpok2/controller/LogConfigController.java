@@ -2,7 +2,9 @@ package com.myprojects.kpok2.controller;
 
 import ch.qos.logback.classic.Level;
 import com.myprojects.kpok2.config.logging.UiLogAppender;
+import com.myprojects.kpok2.service.LogConfigService;
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
@@ -12,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import javafx.application.Platform;
+import javafx.scene.control.ToggleGroup;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -31,6 +34,8 @@ public class LogConfigController {
     private static final String PREF_AUTOSAVE_ENABLED = "autosave_enabled";
     private static final String PREF_AUTOSAVE_INTERVAL = "autosave_interval";
     private static final String PREF_CLEAR_ON_STARTUP = "clear_logs_on_startup";
+    private static final String PREF_AUTOSAVE_NEW_TESTS_ENABLED = "autosave_new_tests_enabled";
+    private static final String PREF_AUTOSAVE_NEW_TESTS_INTERVAL = "autosave_new_tests_interval";
     private static final String DEFAULT_LOGS_PATH = "logs";
     
     private final Preferences prefs = Preferences.userNodeForPackage(LogConfigController.class);
@@ -62,7 +67,22 @@ public class LogConfigController {
     @FXML
     private HBox autoSaveInterval;
     
+    @FXML
+    private CheckBox autoSaveNewTestsCheckBox;
+    
+    @FXML
+    private TextField newTestsIntervalField;
+    
+    @FXML
+    private HBox newTestsAutoSaveInterval;
+    
     private Stage stage;
+    
+    private final LogConfigService logConfigService;
+
+    public LogConfigController(LogConfigService logConfigService) {
+        this.logConfigService = logConfigService;
+    }
     
     public void setStage(Stage stage) {
         this.stage = stage;
@@ -74,14 +94,43 @@ public class LogConfigController {
     
     @FXML
     public void initialize() {
-        // Load saved preferences
-        String savedLevel = prefs.get(PREF_LOG_LEVEL, "INFO");
-        boolean autoSaveEnabled = prefs.getBoolean(PREF_AUTOSAVE_ENABLED, false);
-        boolean clearOnStartup = prefs.getBoolean(PREF_CLEAR_ON_STARTUP, false);
-        int interval = prefs.getInt(PREF_AUTOSAVE_INTERVAL, 15);
+        // Initialize log level radio buttons
+        ToggleGroup logLevelGroup = new ToggleGroup();
+        debugRadio.setToggleGroup(logLevelGroup);
+        infoRadio.setToggleGroup(logLevelGroup);
+        warnRadio.setToggleGroup(logLevelGroup);
+        errorRadio.setToggleGroup(logLevelGroup);
+
+        // Load current settings
+        loadSettings();
+
+        // Add listeners for changes
+        autoSaveCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            autoSaveInterval.setDisable(!newVal);
+        });
         
-        // Set radio buttons based on saved level
-        switch (savedLevel) {
+        autoSaveNewTestsCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            newTestsAutoSaveInterval.setDisable(!newVal);
+        });
+        
+        // Only allow numbers in interval fields
+        intervalField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal.matches("\\d*")) {
+                intervalField.setText(oldVal);
+            }
+        });
+        
+        newTestsIntervalField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal.matches("\\d*")) {
+                newTestsIntervalField.setText(oldVal);
+            }
+        });
+    }
+    
+    private void loadSettings() {
+        // Load log level
+        String currentLevel = logConfigService.getLogLevel();
+        switch (currentLevel) {
             case "DEBUG":
                 debugRadio.setSelected(true);
                 break;
@@ -94,75 +143,82 @@ public class LogConfigController {
             case "ERROR":
                 errorRadio.setSelected(true);
                 break;
-            default:
-                infoRadio.setSelected(true);
         }
-        
-        // Set up autosave fields
-        clearLogsOnStartupCheckBox.setSelected(clearOnStartup);
-        autoSaveCheckBox.setSelected(autoSaveEnabled);
-        intervalField.setText(String.valueOf(interval));
-        
-        // Enable/disable autosave settings based on checkbox
-        autoSaveInterval.setDisable(!autoSaveEnabled);
-        autoSaveCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
-            autoSaveInterval.setDisable(!newVal);
-        });
-        
-        // Only allow numbers in interval field
-        intervalField.textProperty().addListener((obs, oldVal, newVal) -> {
-            if (!newVal.matches("\\d*")) {
-                intervalField.setText(oldVal);
-            }
-        });
+
+        // Load clear on startup setting
+        clearLogsOnStartupCheckBox.setSelected(logConfigService.isClearOnStartup());
+
+        // Load autosave settings
+        autoSaveCheckBox.setSelected(logConfigService.isAutosaveEnabled());
+        intervalField.setText(String.valueOf(logConfigService.getAutosaveInterval()));
+        autoSaveInterval.setDisable(!autoSaveCheckBox.isSelected());
+
+        // Load new tests autosave settings
+        autoSaveNewTestsCheckBox.setSelected(logConfigService.isNewTestsAutosaveEnabled());
+        newTestsIntervalField.setText(String.valueOf(logConfigService.getNewTestsAutosaveInterval()));
+        newTestsAutoSaveInterval.setDisable(!autoSaveNewTestsCheckBox.isSelected());
     }
     
     @FXML
     public void onSaveClick() {
-        // Determine selected log level
-        Level selectedLevel = Level.INFO; // Default
-        
-        if (debugRadio.isSelected()) {
-            selectedLevel = Level.DEBUG;
-            prefs.put(PREF_LOG_LEVEL, "DEBUG");
-        } else if (infoRadio.isSelected()) {
-            selectedLevel = Level.INFO;
-            prefs.put(PREF_LOG_LEVEL, "INFO");
-        } else if (warnRadio.isSelected()) {
-            selectedLevel = Level.WARN;
-            prefs.put(PREF_LOG_LEVEL, "WARN");
-        } else if (errorRadio.isSelected()) {
-            selectedLevel = Level.ERROR;
-            prefs.put(PREF_LOG_LEVEL, "ERROR");
-        }
-        
-        // Set log level in the UiLogAppender
-        UiLogAppender.setMinimumLevel(selectedLevel);
-        
-        // Save clear logs on startup setting
-        boolean clearOnStartup = clearLogsOnStartupCheckBox.isSelected();
-        prefs.putBoolean(PREF_CLEAR_ON_STARTUP, clearOnStartup);
-        
-        // Save autosave settings
-        boolean autoSaveEnabled = autoSaveCheckBox.isSelected();
-        prefs.putBoolean(PREF_AUTOSAVE_ENABLED, autoSaveEnabled);
-        
-        int interval = 15;
         try {
-            interval = Integer.parseInt(intervalField.getText());
-            prefs.putInt(PREF_AUTOSAVE_INTERVAL, interval);
+            // Save log level
+            String logLevel = "INFO"; // Default
+            if (debugRadio.isSelected()) logLevel = "DEBUG";
+            else if (infoRadio.isSelected()) logLevel = "INFO";
+            else if (warnRadio.isSelected()) logLevel = "WARN";
+            else if (errorRadio.isSelected()) logLevel = "ERROR";
+            logConfigService.setLogLevel(logLevel);
+
+            // Save clear logs on startup setting
+            boolean clearOnStartup = clearLogsOnStartupCheckBox.isSelected();
+            logConfigService.setClearOnStartup(clearOnStartup);
+
+            // Save autosave settings
+            boolean autoSaveEnabled = autoSaveCheckBox.isSelected();
+            logConfigService.setAutosaveEnabled(autoSaveEnabled);
+            
+            int interval = 15;
+            try {
+                interval = Integer.parseInt(intervalField.getText());
+                logConfigService.setAutosaveInterval(interval);
+            } catch (NumberFormatException e) {
+                log.warn("Invalid interval value, using default: 15");
+            }
+            
+            // Save new tests autosave settings
+            boolean autoSaveNewTestsEnabled = autoSaveNewTestsCheckBox.isSelected();
+            logConfigService.setNewTestsAutosaveEnabled(autoSaveNewTestsEnabled);
+            
+            int newTestsInterval = 15;
+            try {
+                newTestsInterval = Integer.parseInt(newTestsIntervalField.getText());
+                logConfigService.setNewTestsAutosaveInterval(newTestsInterval);
+            } catch (NumberFormatException e) {
+                log.warn("Invalid new tests interval value, using default: 15");
+            }
+            
+            // Configure autosave
+            configureAutoSave(autoSaveEnabled, interval);
+            
+            // Configure new tests autosave
+            if (mainWindowController != null) {
+                mainWindowController.configureNewTestsAutoSave(autoSaveNewTestsEnabled, newTestsInterval);
+            }
+            
+            log.info("Log settings saved. Level: {}, AutoSave: {}, ClearOnStartup: {}, NewTestsAutoSave: {}", 
+                    logLevel, autoSaveEnabled, clearOnStartup, autoSaveNewTestsEnabled);
+            
+            // Close the dialog
+            stage.close();
+
         } catch (NumberFormatException e) {
-            log.warn("Invalid interval value, using default: 15");
+            log.error("Invalid interval value", e);
+            showError("Error", "Invalid interval value");
+        } catch (Exception e) {
+            log.error("Error saving settings", e);
+            showError("Error", "Failed to save settings");
         }
-        
-        // Configure autosave
-        configureAutoSave(autoSaveEnabled, interval);
-        
-        log.info("Log settings saved. Level: {}, AutoSave: {}, ClearOnStartup: {}", 
-                selectedLevel, autoSaveEnabled, clearOnStartup);
-        
-        // Close the dialog
-        stage.close();
     }
     
     @FXML
@@ -291,6 +347,16 @@ public class LogConfigController {
             }, interval, interval, TimeUnit.MINUTES);
         }
         
+        // Apply new tests autosave settings
+        boolean autoSaveNewTestsEnabled = prefs.getBoolean(PREF_AUTOSAVE_NEW_TESTS_ENABLED, false);
+        log.info("New tests auto save enabled: {}", autoSaveNewTestsEnabled);
+        
+        if (autoSaveNewTestsEnabled && mainWindowController != null) {
+            int interval = prefs.getInt(PREF_AUTOSAVE_NEW_TESTS_INTERVAL, 15);
+            log.info("New tests auto save interval: {} minutes", interval);
+            mainWindowController.configureNewTestsAutoSave(true, interval);
+        }
+        
         logger.info("Log settings applied successfully");
     }
     
@@ -369,5 +435,13 @@ public class LogConfigController {
                 }
             }
         }
+    }
+
+    private void showError(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 } 

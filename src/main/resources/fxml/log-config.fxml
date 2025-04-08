@@ -8,7 +8,7 @@
 <VBox xmlns="http://javafx.com/javafx"
       xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.myprojects.kpok2.controller.LogConfigController"
-      prefHeight="300.0" prefWidth="400.0" spacing="10">
+      prefHeight="400.0" prefWidth="400.0" spacing="10">
     
     <padding>
         <Insets top="20" right="20" bottom="20" left="20"/>
@@ -38,12 +38,26 @@
     
     <Separator/>
     
+    <Label text="%logs.config.autosave.title" style="-fx-font-weight: bold;"/>
+    
     <CheckBox fx:id="autoSaveCheckBox" text="%logs.config.autosave.enable"/>
     
     <HBox spacing="10" alignment="CENTER_LEFT" fx:id="autoSaveInterval">
         <Label text="%logs.config.autosave.interval"/>
         <TextField fx:id="intervalField" prefWidth="50"/>
         <Label text="%logs.config.autosave.minutes"/>
+    </HBox>
+    
+    <Separator/>
+    
+    <Label text="%logs.config.newtests.title" style="-fx-font-weight: bold;"/>
+    
+    <CheckBox fx:id="autoSaveNewTestsCheckBox" text="%logs.config.newtests.autosave.enable"/>
+    
+    <HBox spacing="10" alignment="CENTER_LEFT" fx:id="newTestsAutoSaveInterval">
+        <Label text="%logs.config.newtests.autosave.interval"/>
+        <TextField fx:id="newTestsIntervalField" prefWidth="50"/>
+        <Label text="%logs.config.newtests.autosave.minutes"/>
     </HBox>
     
     <HBox spacing="10" alignment="CENTER_RIGHT" VBox.vgrow="ALWAYS">

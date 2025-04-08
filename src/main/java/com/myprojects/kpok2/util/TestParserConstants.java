@@ -2,7 +2,7 @@ package com.myprojects.kpok2.util;
 
 public class TestParserConstants {
     // Selectors for test questions and answers
-    public static final String QUESTION_SELECTOR = "div[id^=question-]";
+    public static final String QUESTION_SELECTOR = "div[id^=question-], div.que, div.question";
     public static final String QUESTION_TEXT_SELECTOR = "div.qtext";
     public static final String ANSWERS_CONTAINER_SELECTOR = "div.answer";
     public static final String ANSWER_OPTION_SELECTOR = "div.r0, div.r1";

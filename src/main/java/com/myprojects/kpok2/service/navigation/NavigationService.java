@@ -395,8 +395,10 @@ public class NavigationService {
                     Thread.currentThread().interrupt();
                 }
                 
-                // Step 4: Click "Start Attempt" button - only if we clicked "Attempt Test" (not "Continue Attempt")
+                // Step 4: Click "Start Attempt" button - ONLY for new attempts, skip for resume attempts
                 if (!attemptResult.isResumeAttempt()) {
+                    log.info("{}: New attempt detected, proceeding with 'Start Attempt' button click for account: {}", 
+                            threadName, username);
                     try {
                         boolean startBtnSuccess = navigator.clickStartAttemptButton(session);
                         if (!startBtnSuccess) {
@@ -419,7 +421,7 @@ public class NavigationService {
                         Thread.currentThread().interrupt();
                     }
                 } else {
-                    log.info("{}: Skipping 'Start Attempt' button click for account: {} as this is a resume attempt", 
+                    log.info("{}: Resume attempt detected, skipping 'Start Attempt' button click for account: {}", 
                             threadName, username);
                 }
                 

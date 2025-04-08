@@ -268,8 +268,8 @@ public class TestCenterNavigator {
                             String jsScript = 
                                     "var btns = document.querySelectorAll('button, input[type=\"submit\"]');" +
                                     "for(var i=0; i<btns.length; i++) {" +
-                                    "  if(btns[i].textContent.includes('Почати спробу') || " +  // Ukrainian text matches the actual UI button text
-                                    "     btns[i].value && btns[i].value.includes('Почати спробу')) {" +  // Ukrainian text matches the actual UI button value
+                                    "  if(btns[i].textContent.includes('Почати спробу') || " +
+                                    "     btns[i].value && btns[i].value.includes('Почати спробу')) {" +
                                     "    return btns[i];" +
                                     "  }" +
                                     "}" +
@@ -284,6 +284,9 @@ public class TestCenterNavigator {
             }
             
             if (startButton != null) {
+                // Додаємо затримку перед кліком
+                Thread.sleep(5000);
+                
                 // Click the found button
                 startButton.click();
                 
@@ -347,16 +350,6 @@ public class TestCenterNavigator {
         } catch (Exception e) {
             log.error("{}: Error clicking 'Start attempt' button for account {}: {}", 
                     threadName, username, e.getMessage());
-            
-            // Check if we have an attempt ID in URL despite the click error
-            String currentUrl = driver.getCurrentUrl();
-            boolean hasAttemptId = currentUrl.contains("attempt.php") && currentUrl.contains("attempt=");
-            if (hasAttemptId) {
-                log.info("{}: Despite button click error, found attempt ID in URL: {}", threadName, currentUrl);
-                session.updateUrl(currentUrl);
-                return true;
-            }
-            
             return false;
         }
     }
