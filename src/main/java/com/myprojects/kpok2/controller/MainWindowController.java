@@ -113,7 +113,9 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     
     @PreDestroy
     public void cleanup() {
+        log.info("[FINALIZER] @PreDestroy cleanup() in MainWindowController called");
         testQuestionService.removeListener(this);
+        log.info("[FINALIZER] MainWindowController cleanup complete");
     }
     
     @Override

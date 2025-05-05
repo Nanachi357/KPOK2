@@ -110,7 +110,9 @@ public class NavigationSessionFactory {
      */
     @PreDestroy
     public void cleanup() {
+        log.info("[FINALIZER] @PreDestroy cleanup() in NavigationSessionFactory called");
         log.info("Cleaning up navigation resources...");
         webDriverFactory.closeAllDrivers();
+        log.info("[FINALIZER] NavigationSessionFactory cleanup complete");
     }
 } 

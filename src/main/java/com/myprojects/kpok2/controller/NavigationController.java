@@ -85,7 +85,9 @@ public class NavigationController {
      */
     @PreDestroy
     public void cleanup() {
+        log.info("[FINALIZER] @PreDestroy cleanup() in NavigationController called");
         log.info("Application shutting down, cleaning up navigation resources");
         navigationService.shutdown();
+        log.info("[FINALIZER] NavigationController cleanup complete");
     }
 } 
