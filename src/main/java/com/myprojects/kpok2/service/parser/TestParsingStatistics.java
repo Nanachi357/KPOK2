@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 @Slf4j
@@ -32,6 +33,8 @@ public class TestParsingStatistics {
     
     // Last reset time
     private LocalDateTime lastResetTime;
+    
+    private final AtomicBoolean isForceStop = new AtomicBoolean(false);
     
     public TestParsingStatistics() {
         this.processedCount = new AtomicInteger(0);
@@ -82,19 +85,19 @@ public class TestParsingStatistics {
      * @return true if more iterations should be performed, false otherwise
      */
     public boolean isMoreIterationsNeeded() {
-        // If totalIterationsNeeded is 0, it means unlimited iterations
+        if (isForceStop.get()) {
+            log.info("Force stop is active, no more iterations needed");
+            return false;
+        }
         if (totalIterationsNeeded.get() <= 0) {
             return true;
         }
-        
         boolean result = completedIterationsCount.get() < totalIterationsNeeded.get();
-        
         if (!result) {
             log.info("Target iteration count reached: {}/{}", 
                      completedIterationsCount.get(), 
                      totalIterationsNeeded.get());
         }
-        
         return result;
     }
     
@@ -211,6 +214,16 @@ public class TestParsingStatistics {
         sessionHistory.clear();
         lastResetTime = LocalDateTime.now();
         log.info("Statistics reset at {}", lastResetTime);
+    }
+    
+    public void forceStop() {
+        isForceStop.set(true);
+        log.info("Forced stop of parsing operations");
+    }
+
+    public void resetForceStop() {
+        isForceStop.set(false);
+        log.info("Reset force stop flag");
     }
     
     /**

@@ -6,9 +6,11 @@ import com.myprojects.kpok2.service.parser.TestParsingRunner;
 import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -21,14 +23,17 @@ public class NavigationManager {
     private final AccountConfigurationService accountService;
     private final AtomicBoolean isRunning;
     private CompletableFuture<Void> navigationFuture;
+    private final NavigationService navigationService;
 
+    @Autowired
     public NavigationManager(
             TestCenterProperties properties,
             TestCenterNavigator navigator,
             NavigationSessionFactory sessionFactory,
             TestParsingRunner testParsingRunner,
             TestParsingStatistics parsingStatistics,
-            AccountConfigurationService accountService
+            AccountConfigurationService accountService,
+            NavigationService navigationService
     ) {
         this.properties = properties;
         this.navigator = navigator;
@@ -37,6 +42,7 @@ public class NavigationManager {
         this.parsingStatistics = parsingStatistics;
         this.accountService = accountService;
         this.isRunning = new AtomicBoolean(false);
+        this.navigationService = navigationService;
     }
 
     public boolean startNavigation() {
@@ -46,16 +52,8 @@ public class NavigationManager {
         }
 
         try {
-            NavigationService navigationService = new NavigationService(
-                    properties,
-                    navigator,
-                    sessionFactory,
-                    testParsingRunner,
-                    parsingStatistics,
-                    accountService
-            );
-
             log.info("Starting navigation process...");
+            parsingStatistics.resetForceStop();
             boolean success = navigationService.startNavigation();
 
             if (success) {
@@ -92,13 +90,27 @@ public class NavigationManager {
 
         log.info("Stopping navigation process...");
         isRunning.set(false);
+        parsingStatistics.forceStop();
         
         if (navigationFuture != null) {
             navigationFuture.cancel(true);
             navigationFuture = null;
         }
         
-        // TODO: Add proper browser closure
+        // Interrupt all running threads
+        navigationService.shutdown();
+        
+        // Wait for threads to finish
+        try {
+            if (!navigationService.awaitTermination(30, TimeUnit.SECONDS)) {
+                log.warn("Some threads did not terminate in time, forcing shutdown");
+                navigationService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            log.error("Interrupted while waiting for threads to terminate", e);
+            Thread.currentThread().interrupt();
+        }
+        
         log.info("Navigation process stopped");
     }
 

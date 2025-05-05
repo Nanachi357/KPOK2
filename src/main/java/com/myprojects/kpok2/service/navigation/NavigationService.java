@@ -123,6 +123,29 @@ public class NavigationService {
     }
     
     /**
+     * Wait for all navigation tasks to complete
+     * @param timeout the maximum time to wait
+     * @param unit the time unit of the timeout argument
+     * @return true if all tasks completed, false if timeout occurred
+     * @throws InterruptedException if interrupted while waiting
+     */
+    public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+        if (executorService != null) {
+            return executorService.awaitTermination(timeout, unit);
+        }
+        return true;
+    }
+
+    /**
+     * Force shutdown of all navigation tasks
+     */
+    public void shutdownNow() {
+        if (executorService != null) {
+            executorService.shutdownNow();
+        }
+    }
+    
+    /**
      * Task that handles the navigation process for one account.
      */
     private class NavigationTask implements Callable<Boolean> {
