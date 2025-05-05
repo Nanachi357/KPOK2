@@ -1,13 +1,12 @@
 package com.myprojects.kpok2.service.navigation;
 
+import com.myprojects.kpok2.config.TimeoutSettings;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -17,10 +16,13 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class WebDriverFactory {
     // Map to store WebDriver instances by thread ID
-    private final Map<Long, WebDriver> driverMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, WebDriver> driverMap = new ConcurrentHashMap<>();
     
-    // ThreadLocal to track current thread's WebDriver
-    private final ThreadLocal<WebDriver> currentDriver = new ThreadLocal<>();
+    private final TimeoutSettings timeoutSettings;
+    
+    public WebDriverFactory(TimeoutSettings timeoutSettings) {
+        this.timeoutSettings = timeoutSettings;
+    }
     
     /**
      * Get a WebDriver instance for the current thread.
@@ -33,19 +35,7 @@ public class WebDriverFactory {
         long threadId = Thread.currentThread().getId();
         
         // Check if a WebDriver already exists for this thread
-        WebDriver driver = driverMap.get(threadId);
-        
-        // If no WebDriver exists, create a new one
-        if (driver == null) {
-            driver = createWebDriver();
-            driverMap.put(threadId, driver);
-            log.info("Created new WebDriver instance for thread {}", threadId);
-        } else {
-            log.debug("Reusing existing WebDriver instance for thread {}", threadId);
-        }
-        
-        // Set the current thread's driver
-        currentDriver.set(driver);
+        WebDriver driver = driverMap.computeIfAbsent(threadId, k -> createDriver());
         
         return driver;
     }
@@ -54,7 +44,7 @@ public class WebDriverFactory {
      * Close the WebDriver instance for the current thread.
      * This method can be called safely even if no WebDriver exists.
      */
-    public void closeDriver() {
+    public void quitDriver() {
         // Get current thread ID
         long threadId = Thread.currentThread().getId();
         
@@ -67,12 +57,9 @@ public class WebDriverFactory {
                 driver.quit();
                 log.info("Closed WebDriver instance for thread {}", threadId);
             } catch (Exception e) {
-                log.warn("Error closing WebDriver for thread {}: {}", threadId, e.getMessage());
+                log.error("Error closing WebDriver for thread {}: {}", threadId, e.getMessage());
             }
         }
-        
-        // Remove the current thread's driver
-        currentDriver.remove();
     }
     
     /**
@@ -81,7 +68,7 @@ public class WebDriverFactory {
      */
     public void closeAllDrivers() {
         log.info("Closing all WebDriver instances ({})", driverMap.size());
-        for (Map.Entry<Long, WebDriver> entry : driverMap.entrySet()) {
+        for (ConcurrentHashMap.Entry<Long, WebDriver> entry : driverMap.entrySet()) {
             try {
                 entry.getValue().quit();
                 log.debug("Closed WebDriver for thread {}", entry.getKey());
@@ -90,7 +77,6 @@ public class WebDriverFactory {
             }
         }
         driverMap.clear();
-        currentDriver.remove();
         log.info("All WebDriver instances closed");
     }
     
@@ -99,26 +85,24 @@ public class WebDriverFactory {
      *
      * @return New WebDriver instance
      */
-    private WebDriver createWebDriver() {
+    private WebDriver createDriver() {
         ChromeOptions options = new ChromeOptions();
-        
-        // Configure Chrome for optimal automation
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
-        
-        // Disable images and CSS to improve performance (optional)
-        // options.addArguments("--disable-images");
-        
-        // Each browser should have a separate user data directory
-        // to ensure session isolation between threads
-        options.addArguments("--user-data-dir=/tmp/chrome-profile-" + Thread.currentThread().getId());
+        options.addArguments("--remote-allow-origins=*");
         
         // Create a new ChromeDriver instance with the configured options
         WebDriver driver = new ChromeDriver(options);
         
-        // Configure timeouts
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(5));
+        // Configure timeouts using the current preset
+        driver.manage().timeouts()
+              .pageLoadTimeout(timeoutSettings.getPageLoadTimeout())
+              .scriptTimeout(timeoutSettings.getScriptTimeout())
+              .implicitlyWait(timeoutSettings.getImplicitWait());
+        
+        log.info("Created new WebDriver instance for thread {} with timeouts: pageLoad={}, script={}, implicit={}", 
+                Thread.currentThread().getId(), 
+                timeoutSettings.getPageLoadTimeout(),
+                timeoutSettings.getScriptTimeout(),
+                timeoutSettings.getImplicitWait());
         
         return driver;
     }

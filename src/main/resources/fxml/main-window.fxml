@@ -12,7 +12,6 @@
     
     <MenuBar>
         <Menu text="%menu.file">
-            <MenuItem text="%menu.file.settings" onAction="#onSettingsClick"/>
             <MenuItem text="%menu.file.exit" onAction="#onExitClick"/>
         </Menu>
         <Menu text="%menu.testcenter">

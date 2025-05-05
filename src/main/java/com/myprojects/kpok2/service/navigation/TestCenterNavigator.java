@@ -1,5 +1,6 @@
 package com.myprojects.kpok2.service.navigation;
 
+import com.myprojects.kpok2.config.TimeoutSettings;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -46,6 +47,26 @@ public class TestCenterNavigator {
     // Changing timeout from 5 to 3 seconds
     private static final int DEFAULT_TIMEOUT_SECONDS = 3;
 
+    private final WebDriverFactory webDriverFactory;
+    private final TimeoutSettings timeoutSettings;
+    
+    public TestCenterNavigator(WebDriverFactory webDriverFactory, TimeoutSettings timeoutSettings) {
+        this.webDriverFactory = webDriverFactory;
+        this.timeoutSettings = timeoutSettings;
+    }
+    
+    protected WebDriverWait getWait() {
+        return new WebDriverWait(webDriverFactory.getDriver(), timeoutSettings.getExplicitWait());
+    }
+    
+    protected WebDriverWait getAuthenticationWait() {
+        return new WebDriverWait(webDriverFactory.getDriver(), timeoutSettings.getAuthenticationWait());
+    }
+    
+    protected WebDriverWait getNavigationWait() {
+        return new WebDriverWait(webDriverFactory.getDriver(), timeoutSettings.getNavigationWait());
+    }
+
     // Adding a new class for attempt button click result
     public class AttemptButtonResult {
         private final boolean success;
@@ -80,7 +101,7 @@ public class TestCenterNavigator {
             log.info("Navigating to login page for account: {}", username);
             driver.get(LOGIN_URL);
             
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+            WebDriverWait wait = getWait();
             
             // Wait for login form to load
             wait.until(ExpectedConditions.visibilityOfElementLocated(USERNAME_SELECTOR));
@@ -149,7 +170,7 @@ public class TestCenterNavigator {
             log.info("Navigating to test page for account: {}", username);
             driver.get(TEST_URL);
             
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+            WebDriverWait wait = getWait();
             
             // Wait for page content to load
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#page-content")));
@@ -179,7 +200,7 @@ public class TestCenterNavigator {
         try {
             log.info("{}: Looking for test attempt button for account: {}", threadName, username);
             
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+            WebDriverWait wait = getWait();
             
             // Wait for the button to be clickable
             WebElement attemptButton = wait.until(
@@ -236,7 +257,7 @@ public class TestCenterNavigator {
         try {
             log.info("{}: Clicking 'Start attempt' button for account: {}", threadName, username);
             
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+            WebDriverWait wait = getWait();
             
             // First try to find the button using different selectors
             WebElement startButton = null;
@@ -381,7 +402,7 @@ public class TestCenterNavigator {
             driver.get(summaryUrl);
             
             // Wait for page to load
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+            WebDriverWait wait = getWait();
             wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#page-content")));
             
             // Update session URL
@@ -411,7 +432,7 @@ public class TestCenterNavigator {
         try {
             log.info("{}: Clicking 'Submit all and finish' button for account: {}", threadName, username);
             
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+            WebDriverWait wait = getWait();
             
             // Wait for the button to be clickable
             WebElement submitButton = wait.until(
@@ -449,7 +470,7 @@ public class TestCenterNavigator {
         try {
             log.info("{}: Clicking confirmation 'Submit all and finish' button for account: {}", threadName, username);
             
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+            WebDriverWait wait = getWait();
             
             // Wait for the button to be clickable
             WebElement confirmButton = wait.until(
@@ -481,7 +502,7 @@ public class TestCenterNavigator {
      */
     private boolean waitForAuthenticationResult(NavigationSession session) {
         WebDriver driver = session.getWebDriver();
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
+        WebDriverWait wait = getAuthenticationWait();
         
         try {
             // Wait for either the user menu (success) or login errors (failure)

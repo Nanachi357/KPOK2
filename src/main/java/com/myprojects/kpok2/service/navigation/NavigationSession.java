@@ -123,6 +123,6 @@ public class NavigationSession implements AutoCloseable {
     public void close() {
         log.info("Closing navigation session for account: {}", account.getUsername());
         accountManager.releaseAccount(account);
-        webDriverFactory.closeDriver();
+        webDriverFactory.quitDriver();
     }
 } 

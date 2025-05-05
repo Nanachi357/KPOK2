@@ -9,7 +9,7 @@
 <VBox xmlns="http://javafx.com/javafx"
       xmlns:fx="http://javafx.com/fxml"
       fx:controller="com.myprojects.kpok2.controller.NavigationConfigController"
-      prefHeight="250.0" prefWidth="400.0" spacing="10">
+      prefHeight="400.0" prefWidth="500.0" spacing="10">
     
     <padding>
         <Insets top="20" right="20" bottom="20" left="20"/>
@@ -17,6 +17,16 @@
     
     <Label text="%navigation.config.title" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
     
+    <!-- Timeout Presets Section -->
+    <VBox spacing="10">
+        <Label text="%navigation.config.timeout.presets" style="-fx-font-weight: bold"/>
+        <ComboBox fx:id="timeoutPresetComboBox" prefWidth="300"/>
+    </VBox>
+    
+    <Separator/>
+    
+    <!-- Thread Management Section -->
+    <Label text="%navigation.config.threads" style="-fx-font-weight: bold"/>
     <GridPane hgap="10" vgap="10">
         <padding>
             <Insets top="10" right="0" bottom="10" left="0"/>
@@ -25,15 +35,21 @@
         <!-- Max Threads Row -->
         <Label text="%navigation.config.max.threads" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
         <Spinner fx:id="maxThreadsSpinner" editable="true" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+        <Label text="%navigation.config.max.threads.range" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
         
         <!-- Iteration Count Row -->
         <Label text="%navigation.config.iteration.count" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
         <Spinner fx:id="iterationCountSpinner" editable="true" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+        <Label text="%navigation.config.iteration.count.help" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
         
         <!-- Session Reuse Row -->
         <Label text="%navigation.config.reuse.session" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
         <CheckBox fx:id="reuseSessionCheckbox" GridPane.rowIndex="2" GridPane.columnIndex="1"/>
     </GridPane>
+    
+    <Label text="%navigation.config.iteration.note" wrapText="true" style="-fx-font-size: 11px;"/>
+    
+    <Separator/>
     
     <HBox spacing="10" alignment="CENTER_RIGHT">
         <Button fx:id="saveButton" text="%button.save" onAction="#onSaveClick"/>

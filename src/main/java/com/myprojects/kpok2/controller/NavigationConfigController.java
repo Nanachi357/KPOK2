@@ -1,16 +1,23 @@
 package com.myprojects.kpok2.controller;
 
+import com.myprojects.kpok2.config.TimeoutPreset;
+import com.myprojects.kpok2.config.TimeoutSettings;
 import com.myprojects.kpok2.service.AccountConfigurationService;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.Tooltip;
 import javafx.stage.Stage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
+
+import java.util.Locale;
 
 /**
  * Controller for navigation configuration dialog
@@ -19,6 +26,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class NavigationConfigController {
 
+    @FXML
+    private ComboBox<TimeoutPreset> timeoutPresetComboBox;
+    
     @FXML
     private Spinner<Integer> maxThreadsSpinner;
     
@@ -35,21 +45,26 @@ public class NavigationConfigController {
     private Button cancelButton;
     
     private final AccountConfigurationService accountService;
+    private final TimeoutSettings timeoutSettings;
+    private final MessageSource messageSource;
     private Stage stage;
     
     // Constants for max threads
     private static final int MIN_THREADS = 1;
     private static final int MAX_THREADS = 10;
-    private static final int DEFAULT_THREADS = 2;
     
     // Constants for iteration count
     private static final int MIN_ITERATIONS = 0;
     private static final int MAX_ITERATIONS = 10000;
-    private static final int DEFAULT_ITERATIONS = 10;
     
     @Autowired
-    public NavigationConfigController(AccountConfigurationService accountService) {
+    public NavigationConfigController(
+            AccountConfigurationService accountService,
+            TimeoutSettings timeoutSettings,
+            MessageSource messageSource) {
         this.accountService = accountService;
+        this.timeoutSettings = timeoutSettings;
+        this.messageSource = messageSource;
     }
     
     public void setStage(Stage stage) {
@@ -61,13 +76,16 @@ public class NavigationConfigController {
         try {
             log.info("Initializing navigation config window");
             
-            // Load current values from service
+            // Setup timeout preset combo box
+            setupTimeoutPresets();
+            
+            // Load current values from services
             int currentMaxThreads = accountService.getMaxThreads();
             int currentIterationCount = accountService.getIterationCount();
             boolean currentReuseSession = accountService.isReuseSession();
             
-            log.info("Loaded current settings: maxThreads={}, iterationCount={}, reuseSession={}", 
-                    currentMaxThreads, currentIterationCount, currentReuseSession);
+            log.info("Loaded current settings: maxThreads={}, iterationCount={}, reuseSession={}, timeoutPreset={}", 
+                    currentMaxThreads, currentIterationCount, currentReuseSession, timeoutSettings.getCurrentPreset());
             
             // Set up max threads spinner
             SpinnerValueFactory<Integer> maxThreadsFactory = 
@@ -82,25 +100,55 @@ public class NavigationConfigController {
             // Set up reuse session checkbox
             reuseSessionCheckbox.setSelected(currentReuseSession);
             
-            // Add tooltip explaining the option
-            reuseSessionCheckbox.setTooltip(new Tooltip(
-                    "When enabled, browser sessions will be reused between iterations.\n" +
-                    "This improves performance but may be less stable.\n" +
-                    "When disabled, a new browser session is created for each iteration."
-            ));
+            // Select current timeout preset
+            timeoutPresetComboBox.setValue(timeoutSettings.getCurrentPreset());
             
         } catch (Exception e) {
             log.error("Error initializing navigation config window", e);
         }
     }
     
+    private void setupTimeoutPresets() {
+        // Add all presets to combo box
+        timeoutPresetComboBox.getItems().addAll(TimeoutPreset.values());
+        
+        // Set custom cell factory to display localized descriptions
+        timeoutPresetComboBox.setCellFactory(param -> new ListCell<TimeoutPreset>() {
+            @Override
+            protected void updateItem(TimeoutPreset item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(messageSource.getMessage("timeout.preset." + item.name().toLowerCase(), 
+                            null, item.getDescription(), Locale.getDefault()));
+                }
+            }
+        });
+        
+        // Set custom button cell to display localized description
+        timeoutPresetComboBox.setButtonCell(new ListCell<TimeoutPreset>() {
+            @Override
+            protected void updateItem(TimeoutPreset item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(messageSource.getMessage("timeout.preset." + item.name().toLowerCase(), 
+                            null, item.getDescription(), Locale.getDefault()));
+                }
+            }
+        });
+    }
+    
     @FXML
     public void onSaveClick() {
         try {
-            // Get values from spinners
+            // Get values from UI
             int maxThreads = maxThreadsSpinner.getValue();
             int iterationCount = iterationCountSpinner.getValue();
             boolean reuseSession = reuseSessionCheckbox.isSelected();
+            TimeoutPreset selectedPreset = timeoutPresetComboBox.getValue();
             
             // Validate max threads
             if (maxThreads < MIN_THREADS) {
@@ -116,13 +164,14 @@ public class NavigationConfigController {
                 iterationCount = MAX_ITERATIONS;
             }
             
-            // Save to service
+            // Save to services
             accountService.setMaxThreads(maxThreads);
             accountService.setIterationCount(iterationCount);
             accountService.setReuseSession(reuseSession);
+            timeoutSettings.setPreset(selectedPreset);
             
-            log.info("Navigation settings saved: maxThreads={}, iterationCount={}, reuseSession={}", 
-                     maxThreads, iterationCount, reuseSession);
+            log.info("Navigation settings saved: maxThreads={}, iterationCount={}, reuseSession={}, timeoutPreset={}", 
+                     maxThreads, iterationCount, reuseSession, selectedPreset);
             
             // Close the dialog
             stage.close();
