@@ -166,6 +166,52 @@ Time Estimates:
   - Analyze parsing results ✓
   - Monitor account utilization ✓
 
+## Phase 4: Native Windows Distribution (Planned)
+
+### 1. Native Packaging and Installer ⭐ [M]
+- Goal: Allow end-users to run the application as a native Windows executable (.exe) with minimal setup.
+- Status: Not started
+
+#### Implementation Plan
+1. **Build a fat JAR**
+   - Ensure the Maven build produces a runnable JAR with all dependencies included (Spring Boot + JavaFX + all libraries).
+   - Test the JAR locally to confirm it runs as expected.
+2. **Install JDK 14+**
+   - Download and install a JDK version 14 or newer (jpackage is included by default).
+   - Verify `jpackage` is available in your PATH (`jpackage --version`).
+3. **Prepare resources**
+   - Prepare an application icon (.ico) for Windows.
+   - Prepare a license file and any additional resources (optional).
+4. **Run jpackage**
+   - Use the following command (example):
+     ```
+     jpackage \
+       --type exe \
+       --input target/ \
+       --name KPOK2 \
+       --main-jar your-fat-jar-name.jar \
+       --main-class com.myprojects.kpok2.Kpok2Application \
+       --icon path/to/icon.ico \
+       --java-options "-Xmx1024m" \
+       --win-menu \
+       --win-shortcut \
+       --win-dir-chooser \
+       --win-per-user-install \
+       --license-file LICENSE.txt
+     ```
+   - Adjust paths and options as needed for your project structure.
+   - This will produce a standalone .exe or installer in the `output/` directory.
+5. **Test the installer/exe**
+   - Run the produced .exe on a clean Windows machine (without Java installed) to verify it works out-of-the-box.
+   - Check that all resources, icons, and shortcuts are present.
+6. **Distribute**
+   - Publish the .exe or installer for end-users (e.g., via website, GitHub Releases, etc.).
+
+#### Notes
+- The produced package will include a private JVM, so users do not need to install Java.
+- You can customize the installer further (add version, publisher, etc.) via jpackage options.
+- For advanced needs (auto-update, custom installer UI), consider integrating with Inno Setup/NSIS after jpackage.
+
 ## Technical Specifications
 
 ### Performance Metrics
