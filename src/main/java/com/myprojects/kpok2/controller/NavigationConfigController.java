@@ -2,6 +2,7 @@ package com.myprojects.kpok2.controller;
 
 import com.myprojects.kpok2.config.TimeoutPreset;
 import com.myprojects.kpok2.config.TimeoutSettings;
+import com.myprojects.kpok2.config.TestCenterProperties;
 import com.myprojects.kpok2.service.AccountConfigurationService;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -47,6 +48,7 @@ public class NavigationConfigController {
     private final AccountConfigurationService accountService;
     private final TimeoutSettings timeoutSettings;
     private final MessageSource messageSource;
+    private final TestCenterProperties testCenterProperties;
     private Stage stage;
     
     // Constants for max threads
@@ -61,10 +63,12 @@ public class NavigationConfigController {
     public NavigationConfigController(
             AccountConfigurationService accountService,
             TimeoutSettings timeoutSettings,
-            MessageSource messageSource) {
+            MessageSource messageSource,
+            TestCenterProperties testCenterProperties) {
         this.accountService = accountService;
         this.timeoutSettings = timeoutSettings;
         this.messageSource = messageSource;
+        this.testCenterProperties = testCenterProperties;
     }
     
     public void setStage(Stage stage) {
@@ -169,7 +173,10 @@ public class NavigationConfigController {
             accountService.setIterationCount(iterationCount);
             accountService.setReuseSession(reuseSession);
             timeoutSettings.setPreset(selectedPreset);
-            
+
+            // Update TestCenterProperties navigation settings
+            testCenterProperties.getNavigation().setMaxThreads(maxThreads);
+
             log.info("Navigation settings saved: maxThreads={}, iterationCount={}, reuseSession={}, timeoutPreset={}", 
                      maxThreads, iterationCount, reuseSession, selectedPreset);
             
