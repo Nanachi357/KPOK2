@@ -96,6 +96,7 @@ A retry mechanism is implemented for failed parsing attempts. The system tracks 
 - JDK 17 or higher
 - Maven
 - ChromeDriver (for Selenium)
+- PostgreSQL 12 or higher
 
 ### Configuration
 The application uses Spring Boot configuration properties. Main settings can be configured through the UI:
@@ -118,7 +119,7 @@ The application uses Spring Boot configuration properties. Main settings can be 
 
 ### Running the Application
 ```bash
-mvn spring-boot:run
+mvnw.cmd spring-boot:run
 ```
 
 ## API Endpoints
@@ -162,3 +163,64 @@ The application provides a graphical user interface (JavaFX) with the following 
 - Information about new questions added to the database
 - Account usage overview
 - Session history with timestamp, parsed pages, and found questions
+
+## Prerequisites
+- Java 17 or higher
+- PostgreSQL 12 or higher
+
+## Quick Start
+
+1. Install PostgreSQL:
+   - Download from [PostgreSQL Downloads](https://www.postgresql.org/download/windows/)
+   - During installation:
+     - Remember the password you set for the postgres user
+     - Make sure to add PostgreSQL bin directory to PATH
+     - Keep the default port (5432)
+
+2. Run the database setup script:
+   - Double-click `setup_database.bat`
+   - The script will:
+     - Check if PostgreSQL is installed
+     - Create a new database and user
+     - Configure all necessary permissions
+
+3. Start the application:
+   - Run `mvnw.cmd spring-boot:run` or
+   - Open the project in your IDE and run `Kpok2Application.java`
+
+## Troubleshooting
+
+### Database Connection Issues
+If you see database connection errors:
+1. Make sure PostgreSQL is running
+2. Check if port 5434 is available
+3. Verify that the postgres user password is correct
+4. Try running `setup_database.bat` again
+
+### Application Won't Start
+1. Make sure Java 17 is installed
+2. Check if port 8080 is available
+3. Verify that all environment variables are set correctly
+
+## Manual Database Setup (if automatic setup fails)
+
+1. Open Command Prompt as Administrator
+2. Connect to PostgreSQL:
+   ```
+   psql -U postgres
+   ```
+3. Create user and database:
+   ```sql
+   CREATE USER kpok2 WITH PASSWORD 'kpok2' CREATEDB;
+   CREATE DATABASE kpok2_db OWNER kpok2;
+   GRANT ALL PRIVILEGES ON DATABASE kpok2_db TO kpok2;
+   ```
+
+## Configuration
+The application uses the following default settings:
+- Database: localhost:5434/kpok2_db
+- Username: kpok2
+- Password: kpok2
+- Application port: 8080
+
+To change these settings, modify `src/main/resources/application.properties`
