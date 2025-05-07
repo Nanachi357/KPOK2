@@ -212,6 +212,25 @@ Time Estimates:
 - You can customize the installer further (add version, publisher, etc.) via jpackage options.
 - For advanced needs (auto-update, custom installer UI), consider integrating with Inno Setup/NSIS after jpackage.
 
+#### Additional Environment Checks
+1. **PostgreSQL Verification**
+   - Check for PostgreSQL installation
+   - Verify PostgreSQL version compatibility
+   - Provide clear instructions if PostgreSQL is missing
+   - Option to include PostgreSQL in installer (increases size but simplifies setup)
+
+2. **System Variables Check**
+   - Verify required environment variables
+   - Check PATH settings
+   - Provide automatic configuration option (requires admin rights)
+   - Fallback to manual configuration instructions
+
+3. **Component Management**
+   - Handle existing installations gracefully
+   - Version compatibility checks
+   - Update recommendations
+   - Clear error messages and resolution steps
+
 ## Technical Specifications
 
 ### Performance Metrics
