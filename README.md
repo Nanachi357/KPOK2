@@ -1,7 +1,9 @@
-# KPOK2 - Unique Test Questions Collection System
+# KPOK2 - KROK 2 Study Support Application
 
 ## Project Description
-KPOK2 is a Java application based on Spring Boot, designed for automated collection and storage of unique test questions from the TestCenter platform for "KROK 2" exam preparation. The system automates the process of logging in, taking tests, and collecting results, storing unique questions in a database for future use.
+KPOK2 is a personal study-support application that uses browser automation to collect available KROK 2 practice test items, identify unique entries, and store them for searching, organization, and further study.
+
+This repository contains the application source code only; it does not publish a dataset of collected test questions.
 
 ## Tech Stack
 - **Java 17**
@@ -55,11 +57,11 @@ KPOK2 is a Java application based on Spring Boot, designed for automated collect
 1. **Authentication**
    - The system logs into TestCenter using credentials from the configuration
 
-2. **Test Parsing**
-   - The system opens the test URL via Selenium
-   - Parses questions, answer options, and correct answers
-   - Normalizes question text to determine uniqueness
-   - Collects statistics about the parsing process and questions found
+2. **Practice Item Processing**
+   - The system navigates available practice sessions via Selenium
+   - Processes test items and their answer options
+   - Normalizes item text to determine uniqueness
+   - Collects statistics about processed and newly identified items
 
 3. **Data Storage**
    - An MD5 hash of the normalized text is generated for each question
@@ -72,7 +74,7 @@ KPOK2 is a Java application based on Spring Boot, designed for automated collect
    - Retrieval of all saved questions is possible
 
 5. **Statistics and Monitoring**
-   - The system tracks iteration counts, newly added tests, and used accounts
+   - The system tracks iteration counts, newly added study items, and used accounts
    - Statistics can be viewed through a dedicated UI dialog
    - Parsing sessions are logged with detailed information
 
@@ -85,7 +87,7 @@ The system determines question uniqueness based on the MD5 hash of the normalize
 - Removing HTML tags (if any)
 
 ### Asynchronous Processing
-The system uses a thread pool for parallel parsing of multiple tests. The configuration in `AsyncConfig` allows adjusting the number of concurrent operations.
+The system uses a thread pool for parallel processing of multiple practice sessions. The configuration in `AsyncConfig` allows adjusting the number of concurrent operations.
 
 ### Error Handling
 A retry mechanism is implemented for failed parsing attempts. The system tracks the status of each parsing operation and can retry failed operations.
