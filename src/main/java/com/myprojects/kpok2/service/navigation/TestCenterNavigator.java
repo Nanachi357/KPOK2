@@ -87,7 +87,6 @@ public class TestCenterNavigator {
             
             // Enter credentials
             log.info("Entering credentials for account: {}", username);
-            log.info("DEBUG - Password being used for account {}: {}", username, password); // Logging password for debugging
             
             // Clear fields before entering text
             WebElement usernameField = driver.findElement(USERNAME_SELECTOR);
@@ -499,4 +498,4 @@ public class TestCenterNavigator {
             return !currentUrl.contains("login") || currentUrl.contains("redirect");
         }
     }
-} 
+}

@@ -11,6 +11,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.util.ResourceBundle;
+import java.util.TimeZone;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {
@@ -52,6 +53,11 @@ public class Kpok2Application extends Application {
     }
 
     public static void main(String[] args) {
+        // PostgreSQL 18 no longer accepts the legacy IANA identifier used by
+        // some Windows/JDK installations. Normalize it before JDBC starts.
+        if ("Europe/Kiev".equals(TimeZone.getDefault().getID())) {
+            TimeZone.setDefault(TimeZone.getTimeZone("Europe/Kyiv"));
+        }
         launch(args);
     }
 }
