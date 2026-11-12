@@ -1,7 +1,7 @@
-# KPOK2 - KROK 2 Study Support Application
+# KPOK2 - KROK Practice Test Collector
 
 ## Project Description
-KPOK2 is a personal study-support application that uses browser automation to collect available KROK 2 practice test items, identify unique entries, and store them for searching, organization, and further study.
+KPOK2 is a personal study-support application that uses browser automation to collect available KROK 1, 2, and 3 practice test items, identify unique entries, and store them for searching, organization, and further study.
 
 This repository contains the application source code only; it does not publish a dataset of collected test questions.
 
@@ -59,14 +59,17 @@ This repository contains the application source code only; it does not publish a
 
 2. **Practice Item Processing**
    - The system navigates available practice sessions via Selenium
-   - Processes test items and their answer options
-   - Normalizes item text to determine uniqueness
+   - Locates Moodle controls by structure and URL instead of translated button captions
+   - Processes single-choice, multiple-choice, and true/false items
+   - Extracts one or more correct answers without relying on a localized feedback prefix
+   - Applies Unicode-aware normalization to determine uniqueness across languages
    - Collects statistics about processed and newly identified items
 
 3. **Data Storage**
-   - An MD5 hash of the normalized text is generated for each question
-   - Question uniqueness is checked by hash
+   - A deterministic MD5 identity is generated from normalized question text, sorted options, and sorted correct answers
+   - Both current and legacy hashes are checked so an existing database is not filled with duplicates after upgrading
    - Unique questions are stored in the database
+   - Question type, language, quiz ID, source URL, normalization version, and the full correct-answer list are retained
    - Statistics about new questions are updated
 
 4. **Question Search and Retrieval**
@@ -81,10 +84,14 @@ This repository contains the application source code only; it does not publish a
 ## Implementation Features
 
 ### Question Uniqueness
-The system determines question uniqueness based on the MD5 hash of the normalized question text. Normalization includes:
-- Removing extra spaces
-- Converting to lowercase
-- Removing HTML tags (if any)
+The system determines question uniqueness from the normalized question text, answer options, and correct answers. Normalization includes:
+- Unicode NFKC normalization while preserving letters, combining marks, and numbers from any script
+- Locale-independent lowercase conversion
+- Removing answer labels such as `a.`, `б.`, or `2)` from comparison values
+- Collapsing punctuation and repeated whitespace
+- Sorting answer lists before hashing, so display order does not change identity
+
+The previous normalization and hash format are retained for lookup only. This lets an upgraded application recognize rows collected by earlier versions.
 
 ### Asynchronous Processing
 The system uses a thread pool for parallel processing of multiple practice sessions. The configuration in `AsyncConfig` allows adjusting the number of concurrent operations.

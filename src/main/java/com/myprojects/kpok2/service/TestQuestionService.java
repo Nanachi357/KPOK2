@@ -3,6 +3,7 @@ package com.myprojects.kpok2.service;
 import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.repository.TestQuestionRepository;
 import com.myprojects.kpok2.service.mapper.TestQuestionMapper;
+import com.myprojects.kpok2.service.mapper.TestQuestionMapperUtils;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import com.myprojects.kpok2.util.JsonConverter;
@@ -15,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -47,7 +50,17 @@ public class TestQuestionService {
             TestQuestion entity = testQuestionMapper.toEntity(dto);
             String hash = entity.getQuestionHash();
 
-            if (!repository.existsByQuestionHash(hash)) {
+            Set<String> compatibleHashes = new LinkedHashSet<>();
+            compatibleHashes.add(hash);
+            if (dto.getLegacyNormalizedText() != null
+                    && dto.getLegacyNormalizedCorrectAnswer() != null) {
+                compatibleHashes.add(TestQuestionMapperUtils.generateLegacyHash(
+                        dto.getLegacyNormalizedText(),
+                        dto.getLegacyAnswers() == null ? dto.getAnswers() : dto.getLegacyAnswers(),
+                        dto.getLegacyNormalizedCorrectAnswer()));
+            }
+
+            if (!repository.existsByQuestionHashIn(compatibleHashes)) {
                 TestQuestion savedQuestion = repository.save(entity);
                 savedQuestions.add(savedQuestion);
                 log.debug("Saved new question: [hash={}] {}", hash, entity.getQuestionText());

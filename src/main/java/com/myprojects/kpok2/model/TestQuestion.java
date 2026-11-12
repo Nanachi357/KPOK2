@@ -31,8 +31,27 @@ public class TestQuestion {
     @Column(columnDefinition = "jsonb")
     private String possibleAnswersJson;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private String correctAnswersJson;
+
+    @Column(columnDefinition = "TEXT")
     private String correctAnswer;
+
+    @Column(columnDefinition = "TEXT")
     private String normalizedCorrectAnswer;
+
+    private Integer normalizationVersion;
+
+    @Enumerated(EnumType.STRING)
+    private QuestionType questionType;
+
+    private Long sourceQuizId;
+
+    @Column(columnDefinition = "TEXT")
+    private String sourceUrl;
+
+    private String sourceLanguage;
 
     @Column(unique = true)
     private String questionHash;

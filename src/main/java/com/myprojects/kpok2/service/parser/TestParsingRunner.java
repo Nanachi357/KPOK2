@@ -46,7 +46,8 @@ public class TestParsingRunner {
             }
             
             // Parse the test page
-            List<ParsedTestQuestionDto> questions = questionParser.parsePage(driver, url);
+            List<ParsedTestQuestionDto> questions = questionParser.parsePage(
+                    driver, url, session.getQuizTarget());
             if (questions.isEmpty()) {
                 log.error("Failed to parse questions at URL: {}", url);
                 return false;
@@ -106,4 +107,4 @@ public class TestParsingRunner {
         
         return pageQuestions;
     }
-} 
+}

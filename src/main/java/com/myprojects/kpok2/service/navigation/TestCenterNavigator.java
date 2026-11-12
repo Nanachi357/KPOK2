@@ -1,5 +1,6 @@
 package com.myprojects.kpok2.service.navigation;
 
+import com.myprojects.kpok2.model.QuizTarget;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -26,21 +27,16 @@ public class TestCenterNavigator {
     private static final By USER_MENU_SELECTOR = By.cssSelector("li.nav-item.dropdown.ml-3.usermenu");
     private static final By LOGIN_ERROR_SELECTOR = By.cssSelector(".loginerrors");
     
-    // Selectors for test attempt buttons - Ukrainian text values match the TestCenter UI elements
-    private static final By ATTEMPT_TEST_BUTTON_SELECTOR = By.cssSelector(".singlebutton .btn-primary");
-    private static final By START_ATTEMPT_BUTTON_SELECTOR = By.cssSelector("#id_submitbutton");
-    // Ukrainian text in selectors is preserved as it matches the actual text in the TestCenter UI
-    private static final By START_ATTEMPT_TEXT_SELECTOR = By.xpath("//button[contains(text(), 'Почати спробу')]");
-    private static final By START_ATTEMPT_ALT_SELECTOR = By.cssSelector("input[type='submit'].btn-primary, button[type='submit'].btn-primary");
-    private static final By PREFLIGHT_FORM_SELECTOR = By.cssSelector("#mod_quiz_preflight_form");
-    private static final By FINISH_ATTEMPT_LINK_SELECTOR = By.cssSelector(".endtestlink.aalink");
-    // Ukrainian text in selectors is preserved as it matches the actual text in the TestCenter UI
-    private static final By FINISH_ATTEMPT_XPATH_SELECTOR = By.xpath("//a[contains(text(), 'Завершити спробу')]");
-    private static final By SUBMIT_ALL_BUTTON_SELECTOR = By.cssSelector(".submitbtns .btn-primary");
+    private static final By ATTEMPT_TEST_BUTTON_SELECTOR = By.cssSelector(
+            ".singlebutton form[action*='/mod/quiz/'] button[type='submit'], "
+                    + ".singlebutton form[action*='/mod/quiz/'] input[type='submit']");
+    private static final By START_ATTEMPT_BUTTON_SELECTOR = By.cssSelector(
+            "#mod_quiz_preflight_form #id_submitbutton, "
+                    + "#mod_quiz_preflight_form button[type='submit'], "
+                    + "#mod_quiz_preflight_form input[type='submit']");
+    private static final By SUBMIT_ALL_BUTTON_SELECTOR = By.cssSelector(
+            ".submitbtns button[type='submit'], .submitbtns input[type='submit']");
     private static final By CONFIRM_SUBMIT_BUTTON_SELECTOR = By.cssSelector("button.btn-primary[data-action='save']");
-    
-    // Updating the selector for the blocks drawer button with more precise class and attribute matching
-    private static final By BLOCKS_DRAWER_TOGGLE_BUTTON = By.cssSelector("button.btn.icon-no-margin[data-toggler='drawers'][data-target='theme_boost-drawers-blocks']");
     
     // Changing timeout from 5 to 3 seconds
     private static final int DEFAULT_TIMEOUT_SECONDS = 3;
@@ -183,35 +179,22 @@ public class TestCenterNavigator {
             WebElement attemptButton = wait.until(
                     ExpectedConditions.elementToBeClickable(ATTEMPT_TEST_BUTTON_SELECTOR));
             
-            // Check the button text to determine if it's a new attempt or resume attempt
-            String buttonText = attemptButton.getText().trim();
-            // Using more precise text checks to identify the "Continue attempt" button
-            // Ukrainian texts are preserved as they match the actual texts in TestCenter UI
-            boolean isResumeAttempt = buttonText.contains("Продовжуйте свою спробу") || 
-                                      buttonText.contains("Продовжити") ||
-                                      buttonText.contains("Продовжуйте");
-            
-            log.info("{}: Found button with text '{}' for account: {}. Is resume attempt: {}", 
-                    threadName, buttonText, username, isResumeAttempt);
+            log.info("{}: Found quiz attempt form for account: {}", threadName, username);
             
             // Click the button
             attemptButton.click();
             
-            // Short delay after clicking
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            
-            // Wait for page to load after button click - don't rely on preflight form
-            wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#page-content")));
+            wait.until(ExpectedConditions.or(
+                    ExpectedConditions.urlContains("/mod/quiz/attempt.php"),
+                    ExpectedConditions.visibilityOfElementLocated(START_ATTEMPT_BUTTON_SELECTOR)));
             
             // Update session URL
-            session.updateUrl(driver.getCurrentUrl());
+            String currentUrl = driver.getCurrentUrl();
+            session.updateUrl(currentUrl);
+            boolean isResumeAttempt = isAttemptPage(currentUrl);
             
-            log.info("{}: Successfully clicked '{}' button for account: {}", 
-                    threadName, buttonText, username);
+            log.info("{}: Successfully opened quiz attempt flow for account: {}. Resume: {}",
+                    threadName, username, isResumeAttempt);
             return new AttemptButtonResult(true, isResumeAttempt);
         } catch (Exception e) {
             log.error("{}: Error clicking test attempt button for account {}: {}", 
@@ -236,115 +219,25 @@ public class TestCenterNavigator {
             
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
             
-            // First try to find the button using different selectors
-            WebElement startButton = null;
-            
-            // Attempt 1: by ID (original method)
-            try {
-                startButton = wait.until(
-                        ExpectedConditions.elementToBeClickable(START_ATTEMPT_BUTTON_SELECTOR));
-            } catch (Exception idEx) {
-                log.warn("{}: Could not find 'Start attempt' button by ID, trying text: {}", threadName, idEx.getMessage());
-                
-                // Attempt 2: search by button text
-                try {
-                    startButton = wait.until(
-                            ExpectedConditions.elementToBeClickable(START_ATTEMPT_TEXT_SELECTOR));
-                } catch (Exception textEx) {
-                    log.warn("{}: Could not find 'Start attempt' button by text, trying other selectors: {}", threadName, textEx.getMessage());
-                    
-                    // Attempt 3: search by type and class
-                    try {
-                        startButton = wait.until(
-                                ExpectedConditions.elementToBeClickable(START_ATTEMPT_ALT_SELECTOR));
-                    } catch (Exception altEx) {
-                        log.warn("{}: Could not find 'Start attempt' button by alternative selectors: {}", threadName, altEx.getMessage());
-                        
-                        // Last chance attempt using JavaScript
-                        try {
-                            log.info("{}: Trying to find 'Start attempt' button using JavaScript", threadName);
-                            String jsScript = 
-                                    "var btns = document.querySelectorAll('button, input[type=\"submit\"]');" +
-                                    "for(var i=0; i<btns.length; i++) {" +
-                                    "  if(btns[i].textContent.includes('Почати спробу') || " +
-                                    "     btns[i].value && btns[i].value.includes('Почати спробу')) {" +
-                                    "    return btns[i];" +
-                                    "  }" +
-                                    "}" +
-                                    "return null;";
-                            
-                            startButton = (WebElement) ((org.openqa.selenium.JavascriptExecutor) driver).executeScript(jsScript);
-                        } catch (Exception jsEx) {
-                            log.warn("{}: JavaScript approach also failed: {}", threadName, jsEx.getMessage());
-                        }
-                    }
-                }
-            }
-            
-            if (startButton != null) {
-                // Додаємо затримку перед кліком
-                Thread.sleep(5000);
-                
-                // Click the found button
-                startButton.click();
-                
-                // Wait for page to load (quiz page should load)
-                wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#page-content")));
-                
-                // Update session URL
-                session.updateUrl(driver.getCurrentUrl());
-                
-                log.info("{}: Successfully clicked 'Start attempt' button for account: {}", threadName, username);
+            String currentUrl = driver.getCurrentUrl();
+            if (isAttemptPage(currentUrl)) {
+                session.updateUrl(currentUrl);
                 return true;
-            } else {
-                // If button not found by any method, check if we've already navigated to the test page
-                // This can happen if the button was already clicked or the process started automatically
-                
-                // Check URL for "attempt.php"
-                String currentUrl = driver.getCurrentUrl();
-                if (currentUrl.contains("attempt.php")) {
-                    log.info("{}: Already on attempt page without clicking button, URL: {}", threadName, currentUrl);
-                    session.updateUrl(currentUrl);
-                    return true;
-                }
-                
-                // If that didn't help, try a direct JavaScript click on any confirmation button
-                try {
-                    String jsClickScript = 
-                            "var buttons = document.querySelectorAll('.btn-primary, button[type=\"submit\"], input[type=\"submit\"]');" +
-                            "for(var i=0; i<buttons.length; i++) {" +
-                            "  if(buttons[i].offsetWidth > 0 && buttons[i].offsetHeight > 0) {" +
-                            "    buttons[i].click();" +
-                            "    return true;" +
-                            "  }" +
-                            "}" +
-                            "return false;";
-                    
-                    boolean clicked = (Boolean) ((org.openqa.selenium.JavascriptExecutor) driver).executeScript(jsClickScript);
-                    if (clicked) {
-                        // Wait for page to load after click
-                        wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#page-content")));
-                        
-                        // Update session URL
-                        session.updateUrl(driver.getCurrentUrl());
-                        
-                        log.info("{}: Successfully clicked a submit button using JavaScript for account: {}", threadName, username);
-                        return true;
-                    }
-                } catch (Exception jsEx) {
-                    log.warn("{}: Failed to click any submit button with JavaScript: {}", threadName, jsEx.getMessage());
-                }
-                
-                // Check if we have an attempt ID in URL despite the click error
-                boolean hasAttemptId = currentUrl.contains("attempt.php") && currentUrl.contains("attempt=");
-                if (hasAttemptId) {
-                    log.info("{}: Despite button click error, found attempt ID in URL: {}", threadName, currentUrl);
-                    session.updateUrl(currentUrl);
-                    return true;
-                }
-                
-                throw new Exception("Could not find or click 'Start attempt' button with any method");
             }
+
+            WebElement startButton = wait.until(
+                    ExpectedConditions.elementToBeClickable(START_ATTEMPT_BUTTON_SELECTOR));
+            startButton.click();
+
+            wait.until(ExpectedConditions.urlContains("/mod/quiz/attempt.php"));
+            wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("#page-content")));
+
+            currentUrl = driver.getCurrentUrl();
+            session.updateUrl(currentUrl);
+
+            boolean started = isAttemptPage(currentUrl);
+            log.info("{}: Quiz attempt started for account: {}", threadName, username);
+            return started;
         } catch (Exception e) {
             log.error("{}: Error clicking 'Start attempt' button for account {}: {}", 
                     threadName, username, e.getMessage());
@@ -496,5 +389,11 @@ public class TestCenterNavigator {
             String currentUrl = driver.getCurrentUrl();
             return !currentUrl.contains("login") || currentUrl.contains("redirect");
         }
+    }
+
+    static boolean isAttemptPage(String url) {
+        return url != null
+                && url.contains("/mod/quiz/attempt.php")
+                && QuizTarget.extractAttemptId(url).isPresent();
     }
 }

@@ -8,10 +8,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 
 @Repository
 public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long> {
     boolean existsByQuestionHash(String hash);
+    boolean existsByQuestionHashIn(Collection<String> hashes);
     Optional<TestQuestion> findByQuestionHash(String hash);
 
     @Query("SELECT DISTINCT q FROM TestQuestion q " +

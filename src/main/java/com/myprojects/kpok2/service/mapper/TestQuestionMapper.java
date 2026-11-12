@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 @Mapper(
     componentModel = "spring", 
     imports = {LocalDateTime.class},
-    uses = {TestQuestionMapperUtils.class},
     unmappedTargetPolicy = ReportingPolicy.IGNORE
 )
 public interface TestQuestionMapper {
@@ -24,9 +23,10 @@ public interface TestQuestionMapper {
      * Converts DTO to entity using MapStruct
      */
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "questionHash", expression = "java(TestQuestionMapperUtils.generateHash(dto.getNormalizedText(), dto.getAnswers(), dto.getNormalizedCorrectAnswer()))")
+    @Mapping(target = "questionHash", expression = "java(TestQuestionMapperUtils.generateHashV2(dto.getNormalizedText(), dto.getNormalizedAnswers(), dto.getNormalizedCorrectAnswers()))")
     @Mapping(target = "parsedAt", expression = "java(LocalDateTime.now())")
     @Mapping(target = "possibleAnswersJson", expression = "java(TestQuestionMapperUtils.answersToJson(dto.getAnswers()))")
+    @Mapping(target = "correctAnswersJson", expression = "java(TestQuestionMapperUtils.answersToJson(dto.getCorrectAnswers()))")
     @Mapping(target = "questionText", source = "dto.questionText")
     @Mapping(target = "normalizedText", source = "dto.normalizedText")
     @Mapping(target = "correctAnswer", source = "dto.correctAnswer")
