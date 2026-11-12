@@ -2,7 +2,7 @@ package com.myprojects.kpok2.service.navigation;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
 import com.myprojects.kpok2.service.AccountConfigurationService;
-import com.myprojects.kpok2.service.parser.TestParsingRunner;
+import com.myprojects.kpok2.service.parser.ReviewAttemptProcessor;
 import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,10 +16,10 @@ public class NavigationManager {
     private final TestCenterProperties properties;
     private final TestCenterNavigator navigator;
     private final NavigationSessionFactory sessionFactory;
-    private final TestParsingRunner testParsingRunner;
     private final TestParsingStatistics parsingStatistics;
     private final AccountConfigurationService accountService;
     private final ReviewPageResolver reviewPageResolver;
+    private final ReviewAttemptProcessor reviewAttemptProcessor;
     private final AtomicBoolean isRunning;
     private CompletableFuture<Void> navigationFuture;
 
@@ -27,18 +27,18 @@ public class NavigationManager {
             TestCenterProperties properties,
             TestCenterNavigator navigator,
             NavigationSessionFactory sessionFactory,
-            TestParsingRunner testParsingRunner,
             TestParsingStatistics parsingStatistics,
             AccountConfigurationService accountService,
-            ReviewPageResolver reviewPageResolver
+            ReviewPageResolver reviewPageResolver,
+            ReviewAttemptProcessor reviewAttemptProcessor
     ) {
         this.properties = properties;
         this.navigator = navigator;
         this.sessionFactory = sessionFactory;
-        this.testParsingRunner = testParsingRunner;
         this.parsingStatistics = parsingStatistics;
         this.accountService = accountService;
         this.reviewPageResolver = reviewPageResolver;
+        this.reviewAttemptProcessor = reviewAttemptProcessor;
         this.isRunning = new AtomicBoolean(false);
     }
 
@@ -53,10 +53,10 @@ public class NavigationManager {
                     properties,
                     navigator,
                     sessionFactory,
-                    testParsingRunner,
                     parsingStatistics,
                     accountService,
-                    reviewPageResolver
+                    reviewPageResolver,
+                    reviewAttemptProcessor
             );
 
             log.info("Starting navigation process...");

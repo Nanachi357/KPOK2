@@ -1,6 +1,7 @@
 package com.myprojects.kpok2.service.parser;
 
 import com.myprojects.kpok2.model.dto.TestParsingResultDto;
+import com.myprojects.kpok2.model.dto.ReviewAttemptResult;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +43,7 @@ public class TestParsingStatistics {
         this.completedIterationsCount = new AtomicInteger(0);
         this.totalIterationsNeeded = new AtomicInteger(0);
         this.accountsUsed = new ConcurrentHashMap<>();
-        this.sessionHistory = new ArrayList<>();
+        this.sessionHistory = Collections.synchronizedList(new ArrayList<>());
         this.lastResetTime = LocalDateTime.now();
     }
 
@@ -122,6 +124,17 @@ public class TestParsingStatistics {
             failedCount.incrementAndGet();
         }
     }
+
+    /**
+     * Records the page and question totals produced by the primary navigation
+     * flow after one completed Moodle attempt.
+     */
+    public void recordReviewAttempt(ReviewAttemptResult result) {
+        processedCount.addAndGet(result.pages().size());
+        successCount.addAndGet(result.successfulPages());
+        failedCount.addAndGet(result.failedPages());
+        incrementNewQuestions(result.newQuestions());
+    }
     
     /**
      * Update statistics with information about new questions saved
@@ -194,7 +207,9 @@ public class TestParsingStatistics {
      * Get detailed session history
      */
     public List<ParsingSessionInfo> getSessionHistory() {
-        return new ArrayList<>(sessionHistory);
+        synchronized (sessionHistory) {
+            return new ArrayList<>(sessionHistory);
+        }
     }
     
     /**

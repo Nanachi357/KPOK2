@@ -1,8 +1,9 @@
 package com.myprojects.kpok2.service.navigation;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
+import com.myprojects.kpok2.model.dto.ReviewAttemptResult;
 import com.myprojects.kpok2.service.AccountConfigurationService;
-import com.myprojects.kpok2.service.parser.TestParsingRunner;
+import com.myprojects.kpok2.service.parser.ReviewAttemptProcessor;
 import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,10 +34,10 @@ public class NavigationService {
     private final TestCenterProperties properties;
     private final TestCenterNavigator navigator;
     private final NavigationSessionFactory sessionFactory;
-    private final TestParsingRunner testParsingRunner;
     private final TestParsingStatistics parsingStatistics;
     private final AccountConfigurationService accountService;
     private final ReviewPageResolver reviewPageResolver;
+    private final ReviewAttemptProcessor reviewAttemptProcessor;
     
     private ExecutorService executorService;
     private final List<Future<?>> runningTasks = new ArrayList<>();
@@ -514,24 +515,26 @@ public class NavigationService {
                 if (resultPageUrls != null && !resultPageUrls.isEmpty()) {
                     log.info("{}: Found {} result page URLs to process for account: {}", 
                             threadName, resultPageUrls.size(), username);
-                    
-                    for (String resultPageUrl : resultPageUrls) {
-                        try {
-                            log.info("{}: Processing result page URL: {}", threadName, resultPageUrl);
-                            boolean parseSuccess = testParsingRunner.processTestUrl(resultPageUrl, session);
-                            if (parseSuccess) {
-                                log.info("{}: Successfully parsed result page: {}", threadName, resultPageUrl);
-                            } else {
-                                log.warn("{}: Failed to parse result page: {}", threadName, resultPageUrl);
-                            }
-                        } catch (Exception e) {
-                            log.error("{}: Error during parsing of result page {}: {}", 
-                                    threadName, resultPageUrl, e.getMessage(), e);
-                        }
+
+                    ReviewAttemptResult reviewResult = reviewAttemptProcessor.process(
+                            resultPageUrls, session);
+                    if (!reviewResult.isComplete()) {
+                        log.error(
+                                "{}: Incomplete review collection for account {}: "
+                                        + "pages={}/{}, discovered={}, parsed={}, rejected={}",
+                                threadName,
+                                username,
+                                reviewResult.successfulPages(),
+                                reviewResult.pages().size(),
+                                reviewResult.discoveredQuestions(),
+                                reviewResult.parsedQuestions(),
+                                reviewResult.rejectedQuestions());
+                        return false;
                     }
                 } else {
                     log.warn("{}: Cannot generate result page URLs - no attempt ID available for account: {}", 
                             threadName, username);
+                    return false;
                 }
                 
                 log.info("{}: Successfully completed navigation for account: {}", threadName, username);

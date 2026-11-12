@@ -65,6 +65,7 @@ This repository contains the application source code only; it does not publish a
    - The last successful catalog is cached locally for later selection
    - The system navigates available practice sessions via Selenium
    - Locates Moodle controls by structure and URL instead of translated button captions
+   - Prefers Moodle's `showall=1` review and falls back to the pagination links actually present
    - Processes single-choice, multiple-choice, and true/false items
    - Extracts one or more correct answers without relying on a localized feedback prefix
    - Applies Unicode-aware normalization to determine uniqueness across languages
@@ -74,6 +75,8 @@ This repository contains the application source code only; it does not publish a
    - A deterministic MD5 identity is generated from normalized question text, sorted options, and sorted correct answers
    - Both current and legacy hashes are checked so an existing database is not filled with duplicates after upgrading
    - Unique questions are stored in the database
+   - An iteration succeeds only when every discovered review question was parsed
+   - The attempt summary reports pages, parsed questions, new questions, duplicates, and rejected questions
    - Question type, language, quiz ID, source URL, normalization version, and the full correct-answer list are retained
    - Statistics about new questions are updated
 
