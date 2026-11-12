@@ -36,6 +36,7 @@ public class NavigationService {
     private final TestParsingRunner testParsingRunner;
     private final TestParsingStatistics parsingStatistics;
     private final AccountConfigurationService accountService;
+    private final ReviewPageResolver reviewPageResolver;
     
     private ExecutorService executorService;
     private final List<Future<?>> runningTasks = new ArrayList<>();
@@ -45,7 +46,7 @@ public class NavigationService {
      * @return true if navigation has started successfully
      */
     public boolean startNavigation() {
-        int threadCount = properties.getNavigation().getMaxThreads();
+        int threadCount = accountService.getMaxThreads();
         
         // Validate thread count
         if (threadCount <= 0) {
@@ -56,6 +57,14 @@ public class NavigationService {
         // Check if navigation is already running
         if (executorService != null && !executorService.isShutdown()) {
             log.warn("Navigation is already running");
+            return false;
+        }
+
+        try {
+            accountService.getQuizTarget();
+        } catch (IllegalArgumentException e) {
+            log.error("Cannot start navigation: {}. Open Navigation Settings and select a quiz URL.",
+                    e.getMessage());
             return false;
         }
         
@@ -202,7 +211,7 @@ public class NavigationService {
                             
                             // Navigate back to test page to prepare for next iteration
                             try {
-                                String testUrl = "https://test.testcentr.org.ua/mod/quiz/view.php?id=109"; // Direct usage of test page URL
+                                String testUrl = session.getQuizTarget().viewUrl();
                                 String loginUrl = "https://test.testcentr.org.ua/login/index.php"; // Login page URL
                                 log.info("{}: Navigating directly to TEST_URL: {}", threadName, testUrl);
                                 WebDriver driver = session.getWebDriver();
@@ -493,7 +502,15 @@ public class NavigationService {
                 
                 // Process the test results
                 log.info("{}: Checking for result page URLs", threadName);
-                List<String> resultPageUrls = session.getResultPageUrls();
+                List<String> resultPageUrls;
+                try {
+                    resultPageUrls = reviewPageResolver.resolve(session);
+                    session.setResultPageUrls(resultPageUrls);
+                } catch (Exception e) {
+                    log.warn("{}: Could not inspect review pagination, using the show-all URL: {}",
+                            threadName, e.getMessage());
+                    resultPageUrls = session.getResultPageUrls();
+                }
                 if (resultPageUrls != null && !resultPageUrls.isEmpty()) {
                     log.info("{}: Found {} result page URLs to process for account: {}", 
                             threadName, resultPageUrls.size(), username);
@@ -533,4 +550,4 @@ public class NavigationService {
             }
         }
     }
-} 
+}

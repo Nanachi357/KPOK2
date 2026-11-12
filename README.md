@@ -108,8 +108,11 @@ The application uses Spring Boot configuration properties. Main settings can be 
    
 2. **Navigation Settings**
    - Thread configurations are managed through the UI via: TestCenter → Navigation Settings
+   - Paste the full TestCenter quiz page URL, for example: `https://test.testcentr.org.ua/mod/quiz/view.php?id=173`
    - Configure the maximum number of parallel browser sessions (threads)
    - Thread timeout is set to 2 seconds by default
+
+   The selected quiz is saved in the local application configuration. For an initial environment-based setup, you can also set `TESTCENTER_QUIZ_URL` to the same quiz page URL.
 
 3. **Database Configuration**
    - Database settings are configured via application.properties
@@ -156,6 +159,7 @@ The application provides a graphical user interface (JavaFX) with the following 
 - Enabling/disabling accounts for use in navigation
 
 ### Navigation Settings
+- Selecting any TestCenter quiz by its `view.php?id=...` URL
 - Configuring maximum thread count for parallel processing
 - Thread timeout settings
 

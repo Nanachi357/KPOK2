@@ -19,6 +19,7 @@ public class NavigationManager {
     private final TestParsingRunner testParsingRunner;
     private final TestParsingStatistics parsingStatistics;
     private final AccountConfigurationService accountService;
+    private final ReviewPageResolver reviewPageResolver;
     private final AtomicBoolean isRunning;
     private CompletableFuture<Void> navigationFuture;
 
@@ -28,7 +29,8 @@ public class NavigationManager {
             NavigationSessionFactory sessionFactory,
             TestParsingRunner testParsingRunner,
             TestParsingStatistics parsingStatistics,
-            AccountConfigurationService accountService
+            AccountConfigurationService accountService,
+            ReviewPageResolver reviewPageResolver
     ) {
         this.properties = properties;
         this.navigator = navigator;
@@ -36,6 +38,7 @@ public class NavigationManager {
         this.testParsingRunner = testParsingRunner;
         this.parsingStatistics = parsingStatistics;
         this.accountService = accountService;
+        this.reviewPageResolver = reviewPageResolver;
         this.isRunning = new AtomicBoolean(false);
     }
 
@@ -52,7 +55,8 @@ public class NavigationManager {
                     sessionFactory,
                     testParsingRunner,
                     parsingStatistics,
-                    accountService
+                    accountService,
+                    reviewPageResolver
             );
 
             log.info("Starting navigation process...");
@@ -105,4 +109,4 @@ public class NavigationManager {
     public boolean isRunning() {
         return isRunning.get();
     }
-} 
+}

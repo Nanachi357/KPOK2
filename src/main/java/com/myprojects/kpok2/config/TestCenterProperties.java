@@ -43,6 +43,9 @@ public class TestCenterProperties {
      */
     @Data
     public static class NavigationProperties {
+        // Moodle quiz view URL selected by the user
+        private String quizUrl = "";
+
         // Maximum number of parallel threads
         private int maxThreads = 1;
         
@@ -75,4 +78,4 @@ public class TestCenterProperties {
         
         return enabledAccounts;
     }
-} 
+}

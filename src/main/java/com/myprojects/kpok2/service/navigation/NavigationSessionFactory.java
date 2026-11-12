@@ -1,6 +1,7 @@
 package com.myprojects.kpok2.service.navigation;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
+import com.myprojects.kpok2.model.QuizTarget;
 import com.myprojects.kpok2.service.AccountConfigurationService;
 import com.myprojects.kpok2.service.AccountConfigurationService.AccountDTO;
 import lombok.extern.slf4j.Slf4j;
@@ -96,11 +97,15 @@ public class NavigationSessionFactory {
      * @throws InterruptedException if the thread was interrupted while waiting for an available account.
      */
     public NavigationSession createSession() throws InterruptedException {
+        // Resolve the selected quiz before reserving an account. A missing or
+        // malformed URL therefore fails fast without leaking pooled resources.
+        QuizTarget quizTarget = accountService.getQuizTarget();
         AccountCredentials account = accountManager.acquireAccount();
         WebDriver webDriver = webDriverFactory.getDriver();
         
         // Initialize the session with reusable properties
-        NavigationSession session = new NavigationSession(webDriverFactory, accountManager, webDriver, account);
+        NavigationSession session = new NavigationSession(
+                webDriverFactory, accountManager, webDriver, account, quizTarget);
         log.debug("Created new session with account: {} and driver: {}", account.getUsername(), webDriver.hashCode());
         return session;
     }
@@ -113,4 +118,4 @@ public class NavigationSessionFactory {
         log.info("Cleaning up navigation resources...");
         webDriverFactory.closeAllDrivers();
     }
-} 
+}

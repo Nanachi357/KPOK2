@@ -1,11 +1,14 @@
 package com.myprojects.kpok2.controller;
 
 import com.myprojects.kpok2.service.AccountConfigurationService;
+import com.myprojects.kpok2.model.QuizTarget;
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.stage.Stage;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +21,9 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class NavigationConfigController {
+
+    @FXML
+    private TextField quizUrlField;
 
     @FXML
     private Spinner<Integer> maxThreadsSpinner;
@@ -65,6 +71,7 @@ public class NavigationConfigController {
             int currentMaxThreads = accountService.getMaxThreads();
             int currentIterationCount = accountService.getIterationCount();
             boolean currentReuseSession = accountService.isReuseSession();
+            String currentQuizUrl = accountService.getQuizUrl();
             
             log.info("Loaded current settings: maxThreads={}, iterationCount={}, reuseSession={}", 
                     currentMaxThreads, currentIterationCount, currentReuseSession);
@@ -81,6 +88,7 @@ public class NavigationConfigController {
             
             // Set up reuse session checkbox
             reuseSessionCheckbox.setSelected(currentReuseSession);
+            quizUrlField.setText(currentQuizUrl);
             
             // Add tooltip explaining the option
             reuseSessionCheckbox.setTooltip(new Tooltip(
@@ -101,6 +109,11 @@ public class NavigationConfigController {
             int maxThreads = maxThreadsSpinner.getValue();
             int iterationCount = iterationCountSpinner.getValue();
             boolean reuseSession = reuseSessionCheckbox.isSelected();
+            String quizUrl = quizUrlField.getText();
+
+            // Parse before saving so an incomplete or unrelated URL cannot
+            // start a navigation run against the wrong page.
+            QuizTarget.fromUrl(quizUrl);
             
             // Validate max threads
             if (maxThreads < MIN_THREADS) {
@@ -117,9 +130,7 @@ public class NavigationConfigController {
             }
             
             // Save to service
-            accountService.setMaxThreads(maxThreads);
-            accountService.setIterationCount(iterationCount);
-            accountService.setReuseSession(reuseSession);
+            accountService.updateNavigationSettings(quizUrl, maxThreads, iterationCount, reuseSession);
             
             log.info("Navigation settings saved: maxThreads={}, iterationCount={}, reuseSession={}", 
                      maxThreads, iterationCount, reuseSession);
@@ -128,6 +139,11 @@ public class NavigationConfigController {
             stage.close();
         } catch (Exception e) {
             log.error("Error saving navigation settings", e);
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Invalid navigation settings");
+            alert.setHeaderText("The settings could not be saved");
+            alert.setContentText(e.getMessage());
+            alert.showAndWait();
         }
     }
     
@@ -135,4 +151,4 @@ public class NavigationConfigController {
     public void onCancelClick() {
         stage.close();
     }
-} 
+}

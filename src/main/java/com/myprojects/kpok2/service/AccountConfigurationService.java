@@ -2,6 +2,7 @@ package com.myprojects.kpok2.service;
 
 import com.myprojects.kpok2.config.TestCenterProperties;
 import com.myprojects.kpok2.config.TestCenterProperties.AccountProperties;
+import com.myprojects.kpok2.model.QuizTarget;
 import com.myprojects.kpok2.security.PasswordEncryptor;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -43,6 +44,7 @@ public class AccountConfigurationService {
     private static final String THREAD_TIMEOUT_SUFFIX = ".thread-timeout-seconds";
     private static final String ITERATION_COUNT_SUFFIX = ".iteration-count";
     private static final String REUSE_SESSION_SUFFIX = ".reuse-session";
+    private static final String QUIZ_URL_SUFFIX = ".quiz-url";
     private static final int DEFAULT_MAX_THREADS = 2;
     private static final int DEFAULT_THREAD_TIMEOUT = 2;
     private static final int DEFAULT_ITERATION_COUNT = 10; // Default 10 iterations
@@ -53,6 +55,7 @@ public class AccountConfigurationService {
     private int threadTimeout = DEFAULT_THREAD_TIMEOUT;
     private int iterationCount = DEFAULT_ITERATION_COUNT;
     private boolean reuseSession = DEFAULT_REUSE_SESSION;
+    private String quizUrl = "";
 
     @Autowired
     public AccountConfigurationService(
@@ -160,6 +163,7 @@ public class AccountConfigurationService {
         String threadTimeoutKey = NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX;
         String iterationCountKey = NAVIGATION_PREFIX + ITERATION_COUNT_SUFFIX;
         String reuseSessionKey = NAVIGATION_PREFIX + REUSE_SESSION_SUFFIX;
+        String quizUrlKey = NAVIGATION_PREFIX + QUIZ_URL_SUFFIX;
         
         try {
             String maxThreadsStr = properties.getProperty(maxThreadsKey);
@@ -189,6 +193,9 @@ public class AccountConfigurationService {
             } else {
                 reuseSession = DEFAULT_REUSE_SESSION;
             }
+
+            quizUrl = properties.getProperty(
+                    quizUrlKey, environment.getProperty(quizUrlKey, "")).trim();
             
             log.info("Loaded navigation settings: maxThreads={}, threadTimeout={}, iterationCount={}, reuseSession={}", 
                      maxThreads, threadTimeout, iterationCount, reuseSession);
@@ -197,6 +204,7 @@ public class AccountConfigurationService {
             threadTimeout = DEFAULT_THREAD_TIMEOUT;
             iterationCount = DEFAULT_ITERATION_COUNT;
             reuseSession = DEFAULT_REUSE_SESSION;
+            quizUrl = "";
             log.warn("Error parsing navigation settings, using defaults: maxThreads={}, threadTimeout={}, iterationCount={}, reuseSession={}", 
                      maxThreads, threadTimeout, iterationCount, reuseSession);
         }
@@ -247,6 +255,8 @@ public class AccountConfigurationService {
             properties.setProperty(NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX, String.valueOf(DEFAULT_THREAD_TIMEOUT));
             properties.setProperty(NAVIGATION_PREFIX + ITERATION_COUNT_SUFFIX, String.valueOf(DEFAULT_ITERATION_COUNT));
             properties.setProperty(NAVIGATION_PREFIX + REUSE_SESSION_SUFFIX, String.valueOf(DEFAULT_REUSE_SESSION));
+            properties.setProperty(NAVIGATION_PREFIX + QUIZ_URL_SUFFIX,
+                    environment.getProperty(NAVIGATION_PREFIX + QUIZ_URL_SUFFIX, "").trim());
             
         } catch (Exception e) {
             log.error("Failed to load accounts from environment", e);
@@ -263,15 +273,16 @@ public class AccountConfigurationService {
             
             // Add navigation settings to properties
             properties.setProperty(NAVIGATION_PREFIX + MAX_THREADS_SUFFIX, String.valueOf(maxThreads));
-            properties.setProperty(NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX, String.valueOf(DEFAULT_THREAD_TIMEOUT));
+            properties.setProperty(NAVIGATION_PREFIX + THREAD_TIMEOUT_SUFFIX, String.valueOf(threadTimeout));
             properties.setProperty(NAVIGATION_PREFIX + ITERATION_COUNT_SUFFIX, String.valueOf(iterationCount));
             properties.setProperty(NAVIGATION_PREFIX + REUSE_SESSION_SUFFIX, String.valueOf(reuseSession));
+            properties.setProperty(NAVIGATION_PREFIX + QUIZ_URL_SUFFIX, quizUrl);
             
             // Save properties
             saveProperties();
             
             log.info("Saved {} accounts to configuration with navigation settings: maxThreads={}, threadTimeout={}, iterationCount={}, reuseSession={}", 
-                    accounts.size(), maxThreads, DEFAULT_THREAD_TIMEOUT, iterationCount, reuseSession);
+                    accounts.size(), maxThreads, threadTimeout, iterationCount, reuseSession);
         } catch (Exception e) {
             log.error("Failed to save accounts", e);
             throw new RuntimeException("Failed to save accounts", e);
@@ -389,7 +400,7 @@ public class AccountConfigurationService {
      * Get the thread timeout in seconds
      */
     public int getThreadTimeout() {
-        return DEFAULT_THREAD_TIMEOUT;
+        return threadTimeout;
     }
     
     /**
@@ -405,11 +416,36 @@ public class AccountConfigurationService {
      * @param iterationCount the number of parsing iterations to perform
      */
     public void setIterationCount(int iterationCount) {
-        if (iterationCount < 1) {
-            this.iterationCount = 1;
-        } else {
-            this.iterationCount = iterationCount;
-        }
+        this.iterationCount = Math.max(0, iterationCount);
+        saveAccounts();
+    }
+
+    public String getQuizUrl() {
+        return quizUrl;
+    }
+
+    public QuizTarget getQuizTarget() {
+        return QuizTarget.fromUrl(quizUrl);
+    }
+
+    public void setQuizUrl(String quizUrl) {
+        QuizTarget target = QuizTarget.fromUrl(quizUrl);
+        this.quizUrl = target.viewUrl();
+        saveAccounts();
+    }
+
+    /**
+     * Applies the dialog values in one operation so the configuration file is
+     * never left with only part of the new settings.
+     */
+    public void updateNavigationSettings(String quizUrl, int maxThreads, int iterationCount,
+                                         boolean reuseSession) {
+        QuizTarget target = QuizTarget.fromUrl(quizUrl);
+        this.quizUrl = target.viewUrl();
+        this.maxThreads = maxThreads;
+        this.iterationCount = Math.max(0, iterationCount);
+        this.reuseSession = reuseSession;
+        saveAccounts();
     }
     
     /**
@@ -507,4 +543,4 @@ public class AccountConfigurationService {
             this.enabled = enabled;
         }
     }
-} 
+}

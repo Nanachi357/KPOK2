@@ -19,7 +19,6 @@ import java.time.Duration;
 public class TestCenterNavigator {
 
     private static final String LOGIN_URL = "https://test.testcentr.org.ua/login/index.php";
-    private static final String TEST_URL = "https://test.testcentr.org.ua/mod/quiz/view.php?id=109";
     
     private static final By USERNAME_SELECTOR = By.cssSelector("input#username");
     private static final By PASSWORD_SELECTOR = By.cssSelector("input#password");
@@ -146,7 +145,7 @@ public class TestCenterNavigator {
         
         try {
             log.info("Navigating to test page for account: {}", username);
-            driver.get(TEST_URL);
+            driver.get(session.getQuizTarget().viewUrl());
             
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
             
@@ -375,7 +374,7 @@ public class TestCenterNavigator {
             }
             
             // Use direct navigation to summary.php instead of searching for a link
-            String summaryUrl = "https://test.testcentr.org.ua/mod/quiz/summary.php?attempt=" + session.getAttemptId() + "&cmid=109";
+            String summaryUrl = session.getQuizTarget().summaryUrl(session.getAttemptId());
             log.info("{}: Navigating directly to summary page: {}", threadName, summaryUrl);
             driver.get(summaryUrl);
             
