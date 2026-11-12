@@ -29,10 +29,11 @@
    <center>
       <TableView fx:id="accountsTable" BorderPane.alignment="CENTER">
         <columns>
-          <TableColumn fx:id="usernameColumn" prefWidth="250.0" text="Username" />
-          <TableColumn fx:id="passwordColumn" prefWidth="200.0" text="Password" />
-          <TableColumn fx:id="enabledColumn" prefWidth="100.0" text="Enabled" />
-          <TableColumn fx:id="actionsColumn" prefWidth="200.0" text="Actions" />
+          <TableColumn fx:id="usernameColumn" prefWidth="180.0" text="Username" />
+          <TableColumn fx:id="passwordColumn" prefWidth="110.0" text="Password" />
+          <TableColumn fx:id="enabledColumn" prefWidth="80.0" text="Enabled" />
+          <TableColumn fx:id="validationColumn" prefWidth="140.0" text="Login status" />
+          <TableColumn fx:id="actionsColumn" prefWidth="220.0" text="Actions" />
         </columns>
          <BorderPane.margin>
             <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
@@ -57,4 +58,4 @@
          </BorderPane.margin>
       </VBox>
    </bottom>
-</BorderPane> 
+</BorderPane>

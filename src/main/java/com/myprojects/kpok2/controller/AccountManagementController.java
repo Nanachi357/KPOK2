@@ -2,9 +2,14 @@ package com.myprojects.kpok2.controller;
 
 import com.myprojects.kpok2.service.AccountConfigurationService;
 import com.myprojects.kpok2.service.AccountConfigurationService.AccountDTO;
+import com.myprojects.kpok2.service.AccountConfigurationService.AccountValidationStatus;
+import com.myprojects.kpok2.service.catalog.QuizCatalogService;
 import com.myprojects.kpok2.service.navigation.AccountManager;
 import com.myprojects.kpok2.service.navigation.NavigationSessionFactory;
+import com.myprojects.kpok2.service.navigation.TestCenterNavigator.AuthenticationResult;
+import com.myprojects.kpok2.service.navigation.TestCenterNavigator.AuthenticationStatus;
 import javafx.beans.property.SimpleStringProperty;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
@@ -15,6 +20,7 @@ import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.HBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.Callback;
@@ -45,6 +51,9 @@ public class AccountManagementController implements Initializable {
     
     @FXML
     private TableColumn<AccountDTO, Boolean> enabledColumn;
+
+    @FXML
+    private TableColumn<AccountDTO, String> validationColumn;
     
     @FXML
     private TableColumn<AccountDTO, Void> actionsColumn;
@@ -59,17 +68,20 @@ public class AccountManagementController implements Initializable {
     private final ApplicationContext applicationContext;
     private final NavigationSessionFactory navigationSessionFactory;
     private final AccountManager accountManager;
+    private final QuizCatalogService catalogService;
     
     @Autowired
     public AccountManagementController(
             AccountConfigurationService accountService,
             ApplicationContext applicationContext,
             NavigationSessionFactory navigationSessionFactory,
-            AccountManager accountManager) {
+            AccountManager accountManager,
+            QuizCatalogService catalogService) {
         this.accountService = accountService;
         this.applicationContext = applicationContext;
         this.navigationSessionFactory = navigationSessionFactory;
         this.accountManager = accountManager;
+        this.catalogService = catalogService;
     }
     
     @Override
@@ -92,7 +104,7 @@ public class AccountManagementController implements Initializable {
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.setTitle("Test Center Account Management");
             stage.setScene(new Scene(root));
-            stage.setMinWidth(700);
+            stage.setMinWidth(760);
             stage.setMinHeight(500);
             
             // Handle key events for the stage
@@ -147,6 +159,29 @@ public class AccountManagementController implements Initializable {
                 }
             }
         });
+
+        validationColumn.setCellValueFactory(cellData -> new SimpleStringProperty(
+                cellData.getValue().getValidationStatus().getDisplayName()));
+        validationColumn.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || getTableRow().getItem() == null) {
+                    setText(null);
+                    setTooltip(null);
+                    return;
+                }
+
+                AccountDTO account = getTableRow().getItem();
+                setText(item);
+                setTooltip(new Tooltip(account.getValidationMessage()));
+                setStyle(switch (account.getValidationStatus()) {
+                    case VALID -> "-fx-text-fill: green; -fx-font-weight: bold;";
+                    case INVALID, ERROR -> "-fx-text-fill: #b00020; -fx-font-weight: bold;";
+                    default -> "";
+                });
+            }
+        });
         
         // Actions column - edit and delete buttons
         actionsColumn.setCellFactory(createActionsColumnCellFactory());
@@ -157,20 +192,24 @@ public class AccountManagementController implements Initializable {
      */
     private Callback<TableColumn<AccountDTO, Void>, TableCell<AccountDTO, Void>> createActionsColumnCellFactory() {
         return column -> new TableCell<>() {
+            private final Button testButton = new Button("Test");
             private final Button editButton = new Button("Edit");
             private final Button deleteButton = new Button("Delete");
-            private final ButtonBar buttonBar = new ButtonBar();
+            private final HBox buttonBox = new HBox(6, testButton, editButton, deleteButton);
             
             {
                 // Style and setup buttons
+                testButton.getStyleClass().add("button-small");
                 editButton.getStyleClass().add("button-small");
                 deleteButton.getStyleClass().add("button-small");
-                
-                // Add buttons to the button bar
-                ButtonBar.setButtonData(editButton, ButtonBar.ButtonData.LEFT);
-                ButtonBar.setButtonData(deleteButton, ButtonBar.ButtonData.RIGHT);
-                buttonBar.getButtons().addAll(editButton, deleteButton);
-                
+
+                testButton.setOnAction(event -> {
+                    AccountDTO account = getTableRow().getItem();
+                    if (account != null) {
+                        validateAccount(account, testButton);
+                    }
+                });
+
                 // Edit button action
                 editButton.setOnAction(event -> {
                     AccountDTO account = getTableRow().getItem();
@@ -196,10 +235,57 @@ public class AccountManagementController implements Initializable {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    setGraphic(buttonBar);
+                    setGraphic(buttonBox);
                 }
             }
         };
+    }
+
+    private void validateAccount(AccountDTO account, Button testButton) {
+        account.setValidationStatus(AccountValidationStatus.CHECKING);
+        account.setValidationMessage("Connecting to TestCenter…");
+        accountsTable.refresh();
+        testButton.setDisable(true);
+
+        Task<AuthenticationResult> task = new Task<>() {
+            @Override
+            protected AuthenticationResult call() {
+                return catalogService.validateAccount(account);
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            AuthenticationResult result = task.getValue();
+            if (result.isSuccess()) {
+                account.setValidationStatus(AccountValidationStatus.VALID);
+            } else if (result.status() == AuthenticationStatus.INVALID_CREDENTIALS) {
+                account.setValidationStatus(AccountValidationStatus.INVALID);
+            } else {
+                account.setValidationStatus(AccountValidationStatus.ERROR);
+            }
+            account.setValidationMessage(result.message());
+            testButton.setDisable(false);
+            accountsTable.refresh();
+
+            if (!result.isSuccess()) {
+                showErrorAlert("Account validation failed", result.message());
+            }
+        });
+
+        task.setOnFailed(event -> {
+            String message = task.getException() == null
+                    ? "Unknown account validation error"
+                    : task.getException().getMessage();
+            account.setValidationStatus(AccountValidationStatus.ERROR);
+            account.setValidationMessage(message);
+            testButton.setDisable(false);
+            accountsTable.refresh();
+            showErrorAlert("Account validation failed", message);
+        });
+
+        Thread thread = new Thread(task, "testcenter-account-validation");
+        thread.setDaemon(true);
+        thread.start();
     }
     
     /**
@@ -451,4 +537,4 @@ public class AccountManagementController implements Initializable {
             alert.showAndWait();
         }
     }
-} 
+}

@@ -55,9 +55,14 @@ This repository contains the application source code only; it does not publish a
 ## System Workflow
 
 1. **Authentication**
-   - The system logs into TestCenter using credentials from the configuration
+   - TestCenter accounts are added through the UI and stored with local AES-GCM encryption
+   - Each account can be validated without starting a quiz attempt
+   - Catalog operations run in a background browser and automatically self-enrol the account
+     in the KROK course when no enrollment key is required
 
 2. **Practice Item Processing**
+   - The authenticated TestCenter catalog can be refreshed and searched from Navigation Settings
+   - The last successful catalog is cached locally for later selection
    - The system navigates available practice sessions via Selenium
    - Locates Moodle controls by structure and URL instead of translated button captions
    - Processes single-choice, multiple-choice, and true/false items
@@ -164,9 +169,12 @@ The application provides a graphical user interface (JavaFX) with the following 
 ### Account Management
 - Adding/editing/removing TestCenter accounts
 - Enabling/disabling accounts for use in navigation
+- Testing an account login and displaying its current validation status
 
 ### Navigation Settings
-- Selecting any TestCenter quiz by its `view.php?id=...` URL
+- Refreshing the authenticated TestCenter quiz catalog with a selected account
+- Searching the cached catalog by KROK level, specialty, language, or title
+- Selecting a discovered quiz or entering its `view.php?id=...` URL manually
 - Configuring maximum thread count for parallel processing
 - Thread timeout settings
 

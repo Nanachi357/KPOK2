@@ -6,6 +6,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.stereotype.Component;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,6 +50,17 @@ public class WebDriverFactory {
         
         return driver;
     }
+
+    /**
+     * Creates an isolated headless browser for short background operations.
+     * The caller owns the returned driver and must close it with
+     * {@link #closeDriver(WebDriver)}.
+     */
+    public WebDriver createHeadlessDriver() {
+        WebDriver driver = createWebDriver(true);
+        log.info("Created headless WebDriver instance for background operation");
+        return driver;
+    }
     
     /**
      * Close the WebDriver instance for the current thread.
@@ -73,6 +85,22 @@ public class WebDriverFactory {
         
         // Remove the current thread's driver
         currentDriver.remove();
+    }
+
+    /**
+     * Closes a detached browser created for a background operation.
+     */
+    public void closeDriver(WebDriver driver) {
+        if (driver == null) {
+            return;
+        }
+
+        try {
+            driver.quit();
+            log.info("Closed background WebDriver instance");
+        } catch (Exception e) {
+            log.warn("Error closing background WebDriver: {}", e.getMessage());
+        }
     }
     
     /**
@@ -100,26 +128,39 @@ public class WebDriverFactory {
      * @return New WebDriver instance
      */
     private WebDriver createWebDriver() {
+        return createWebDriver(false);
+    }
+
+    private WebDriver createWebDriver(boolean headless) {
         ChromeOptions options = new ChromeOptions();
         
         // Configure Chrome for optimal automation
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
+        if (headless) {
+            options.addArguments("--headless=new");
+            options.addArguments("--window-size=1920,1080");
+        }
         
         // Disable images and CSS to improve performance (optional)
         // options.addArguments("--disable-images");
         
         // Each browser should have a separate user data directory
         // to ensure session isolation between threads
-        options.addArguments("--user-data-dir=/tmp/chrome-profile-" + Thread.currentThread().getId());
+        Path profilePath = Path.of(
+                System.getProperty("java.io.tmpdir"),
+                "kpok2-chrome",
+                "profile-" + Thread.currentThread().getId()
+                        + (headless ? "-headless" : "")).toAbsolutePath();
+        options.addArguments("--user-data-dir=" + profilePath);
         
         // Create a new ChromeDriver instance with the configured options
         WebDriver driver = new ChromeDriver(options);
         
         // Configure timeouts
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(5));
+        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
         
         return driver;
     }
-} 
+}

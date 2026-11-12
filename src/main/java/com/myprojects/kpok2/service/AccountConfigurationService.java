@@ -509,6 +509,8 @@ public class AccountConfigurationService {
         private String username;
         private String password;
         private boolean enabled;
+        private transient AccountValidationStatus validationStatus = AccountValidationStatus.NOT_CHECKED;
+        private transient String validationMessage = "Not checked";
         
         public AccountDTO() {
         }
@@ -541,6 +543,42 @@ public class AccountConfigurationService {
         
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+
+        public AccountValidationStatus getValidationStatus() {
+            return validationStatus;
+        }
+
+        public void setValidationStatus(AccountValidationStatus validationStatus) {
+            this.validationStatus = validationStatus == null
+                    ? AccountValidationStatus.NOT_CHECKED
+                    : validationStatus;
+        }
+
+        public String getValidationMessage() {
+            return validationMessage;
+        }
+
+        public void setValidationMessage(String validationMessage) {
+            this.validationMessage = validationMessage;
+        }
+    }
+
+    public enum AccountValidationStatus {
+        NOT_CHECKED("Not checked"),
+        CHECKING("Checking…"),
+        VALID("Valid"),
+        INVALID("Invalid credentials"),
+        ERROR("Connection error");
+
+        private final String displayName;
+
+        AccountValidationStatus(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
         }
     }
 }

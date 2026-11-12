@@ -24,8 +24,10 @@ public class TestCenterNavigator {
     private static final By USERNAME_SELECTOR = By.cssSelector("input#username");
     private static final By PASSWORD_SELECTOR = By.cssSelector("input#password");
     private static final By LOGIN_BUTTON_SELECTOR = By.cssSelector("button#loginbtn");
-    private static final By USER_MENU_SELECTOR = By.cssSelector("li.nav-item.dropdown.ml-3.usermenu");
-    private static final By LOGIN_ERROR_SELECTOR = By.cssSelector(".loginerrors");
+    private static final By USER_MENU_SELECTOR = By.cssSelector(
+            ".usermenu, [data-region='user-menu']");
+    private static final By LOGIN_ERROR_SELECTOR = By.cssSelector(
+            ".loginerrors, .alert-danger");
     
     private static final By ATTEMPT_TEST_BUTTON_SELECTOR = By.cssSelector(
             ".singlebutton form[action*='/mod/quiz/'] button[type='submit'], "
@@ -38,8 +40,7 @@ public class TestCenterNavigator {
             ".submitbtns button[type='submit'], .submitbtns input[type='submit']");
     private static final By CONFIRM_SUBMIT_BUTTON_SELECTOR = By.cssSelector("button.btn-primary[data-action='save']");
     
-    // Changing timeout from 5 to 3 seconds
-    private static final int DEFAULT_TIMEOUT_SECONDS = 3;
+    private static final int DEFAULT_TIMEOUT_SECONDS = 10;
 
     // Adding a new class for attempt button click result
     public class AttemptButtonResult {
@@ -60,6 +61,18 @@ public class TestCenterNavigator {
         }
     }
 
+    public enum AuthenticationStatus {
+        SUCCESS,
+        INVALID_CREDENTIALS,
+        ERROR
+    }
+
+    public record AuthenticationResult(AuthenticationStatus status, String message) {
+        public boolean isSuccess() {
+            return status == AuthenticationStatus.SUCCESS;
+        }
+    }
+
     /**
      * Authenticate to the TestCenter website
      *
@@ -68,64 +81,56 @@ public class TestCenterNavigator {
      */
     public boolean authenticate(NavigationSession session) {
         WebDriver driver = session.getWebDriver();
-        String username = session.getAccount().getUsername();
-        String password = session.getAccount().getPassword();
-        
+        AuthenticationResult result = authenticate(driver, session.getAccount());
+        if (result.isSuccess()) {
+            session.updateUrl(driver.getCurrentUrl());
+        }
+        return result.isSuccess();
+    }
+
+    /**
+     * Authenticates explicit credentials without requiring a quiz attempt session.
+     * Used by account validation and catalog refresh.
+     */
+    public AuthenticationResult authenticate(WebDriver driver, AccountCredentials account) {
+        String username = account.getUsername();
+
         try {
             log.info("Navigating to login page for account: {}", username);
             driver.get(LOGIN_URL);
-            
+
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
-            
-            // Wait for login form to load
-            wait.until(ExpectedConditions.visibilityOfElementLocated(USERNAME_SELECTOR));
-            
-            // Enter credentials
+            wait.until(ExpectedConditions.or(
+                    ExpectedConditions.visibilityOfElementLocated(USER_MENU_SELECTOR),
+                    ExpectedConditions.visibilityOfElementLocated(USERNAME_SELECTOR)));
+
+            if (!driver.findElements(USER_MENU_SELECTOR).isEmpty()) {
+                log.info("Account {} already has an authenticated session", username);
+                return new AuthenticationResult(
+                        AuthenticationStatus.SUCCESS, "Authentication successful");
+            }
+
             log.info("Entering credentials for account: {}", username);
-            
-            // Clear fields before entering text
             WebElement usernameField = driver.findElement(USERNAME_SELECTOR);
             WebElement passwordField = driver.findElement(PASSWORD_SELECTOR);
             usernameField.clear();
             passwordField.clear();
-            
-            // Enter username
             usernameField.sendKeys(username);
-            
-            // Enter password slowly, character by character
-            for (char c : password.toCharArray()) {
-                passwordField.sendKeys(String.valueOf(c));
-                try {
-                    Thread.sleep(100); // Small delay between characters
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-            
-            // Shorter delay before clicking login button
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            
-            // Click login button
+            passwordField.sendKeys(account.getPassword());
             driver.findElement(LOGIN_BUTTON_SELECTOR).click();
-            
-            // Wait for either success or failure
-            boolean success = waitForAuthenticationResult(session);
-            
-            if (success) {
+
+            AuthenticationResult result = waitForAuthenticationResult(driver);
+            if (result.isSuccess()) {
                 log.info("Authentication successful for account: {}", username);
-                session.updateUrl(driver.getCurrentUrl());
-                return true;
             } else {
-                log.error("Authentication failed for account: {}", username);
-                return false;
+                log.error("Authentication failed for account {}: {}", username, result.message());
             }
+            return result;
         } catch (Exception e) {
             log.error("Error during authentication for account {}: {}", username, e.getMessage());
-            return false;
+            return new AuthenticationResult(
+                    AuthenticationStatus.ERROR,
+                    "Could not reach or authenticate with TestCenter: " + e.getMessage());
         }
     }
     
@@ -367,11 +372,10 @@ public class TestCenterNavigator {
     /**
      * Wait for the authentication result (success or failure)
      *
-     * @param session The navigation session
-     * @return true if authentication was successful, false otherwise
+     * @param driver browser used for authentication
+     * @return detailed authentication result
      */
-    private boolean waitForAuthenticationResult(NavigationSession session) {
-        WebDriver driver = session.getWebDriver();
+    private AuthenticationResult waitForAuthenticationResult(WebDriver driver) {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(DEFAULT_TIMEOUT_SECONDS));
         
         try {
@@ -381,13 +385,27 @@ public class TestCenterNavigator {
                     ExpectedConditions.visibilityOfElementLocated(LOGIN_ERROR_SELECTOR)
             ));
             
-            // Check if login was successful
-            return driver.findElements(USER_MENU_SELECTOR).size() > 0;
+            if (!driver.findElements(USER_MENU_SELECTOR).isEmpty()) {
+                return new AuthenticationResult(
+                        AuthenticationStatus.SUCCESS, "Authentication successful");
+            }
+
+            String message = driver.findElements(LOGIN_ERROR_SELECTOR).stream()
+                    .findFirst()
+                    .map(WebElement::getText)
+                    .filter(text -> !text.isBlank())
+                    .orElse("Invalid username or password");
+            return new AuthenticationResult(AuthenticationStatus.INVALID_CREDENTIALS, message);
         } catch (Exception e) {
             log.warn("Timeout waiting for authentication result: {}", e.getMessage());
-            // Check current URL to determine if login was successful
             String currentUrl = driver.getCurrentUrl();
-            return !currentUrl.contains("login") || currentUrl.contains("redirect");
+            if (currentUrl != null && !currentUrl.contains("/login/")) {
+                return new AuthenticationResult(
+                        AuthenticationStatus.SUCCESS, "Authentication successful");
+            }
+            return new AuthenticationResult(
+                    AuthenticationStatus.ERROR,
+                    "TestCenter did not return an authentication result in time");
         }
     }
 
