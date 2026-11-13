@@ -6,9 +6,14 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -17,8 +22,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 public class WebDriverFactory {
+    private static final Path PROFILE_ROOT = Path.of(
+            System.getProperty("java.io.tmpdir"), "kpok2-chrome").toAbsolutePath().normalize();
+
     // Map to store WebDriver instances by thread ID
     private final Map<Long, WebDriver> driverMap = new ConcurrentHashMap<>();
+    private final Map<WebDriver, Path> profilePaths = new ConcurrentHashMap<>();
     
     // ThreadLocal to track current thread's WebDriver
     private final ThreadLocal<WebDriver> currentDriver = new ThreadLocal<>();
@@ -75,12 +84,7 @@ public class WebDriverFactory {
         
         // If a WebDriver exists, close it
         if (driver != null) {
-            try {
-                driver.quit();
-                log.info("Closed WebDriver instance for thread {}", threadId);
-            } catch (Exception e) {
-                log.warn("Error closing WebDriver for thread {}: {}", threadId, e.getMessage());
-            }
+            closeDriverAndProfile(driver, "thread " + threadId);
         }
         
         // Remove the current thread's driver
@@ -95,12 +99,7 @@ public class WebDriverFactory {
             return;
         }
 
-        try {
-            driver.quit();
-            log.info("Closed background WebDriver instance");
-        } catch (Exception e) {
-            log.warn("Error closing background WebDriver: {}", e.getMessage());
-        }
+        closeDriverAndProfile(driver, "background operation");
     }
     
     /**
@@ -110,14 +109,14 @@ public class WebDriverFactory {
     public void closeAllDrivers() {
         log.info("Closing all WebDriver instances ({})", driverMap.size());
         for (Map.Entry<Long, WebDriver> entry : driverMap.entrySet()) {
-            try {
-                entry.getValue().quit();
-                log.debug("Closed WebDriver for thread {}", entry.getKey());
-            } catch (Exception e) {
-                log.warn("Error closing WebDriver for thread {}: {}", entry.getKey(), e.getMessage());
-            }
+            closeDriverAndProfile(entry.getValue(), "thread " + entry.getKey());
         }
         driverMap.clear();
+        // Detached background drivers are caller-owned during normal work,
+        // but application shutdown must still release any that are in flight.
+        for (WebDriver driver : List.copyOf(profilePaths.keySet())) {
+            closeDriverAndProfile(driver, "application shutdown");
+        }
         currentDriver.remove();
         log.info("All WebDriver instances closed");
     }
@@ -146,21 +145,63 @@ public class WebDriverFactory {
         // Disable images and CSS to improve performance (optional)
         // options.addArguments("--disable-images");
         
-        // Each browser should have a separate user data directory
-        // to ensure session isolation between threads
-        Path profilePath = Path.of(
-                System.getProperty("java.io.tmpdir"),
-                "kpok2-chrome",
-                "profile-" + Thread.currentThread().getId()
-                        + (headless ? "-headless" : "")).toAbsolutePath();
+        // Each browser gets a fresh profile. A thread-based path alone can be
+        // left locked after a browser crash and block later application runs.
+        Path profilePath = createProfilePath(
+                Thread.currentThread().getId(), headless, UUID.randomUUID().toString());
         options.addArguments("--user-data-dir=" + profilePath);
-        
-        // Create a new ChromeDriver instance with the configured options
-        WebDriver driver = new ChromeDriver(options);
-        
-        // Configure timeouts
-        driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
-        
-        return driver;
+
+        try {
+            WebDriver driver = new ChromeDriver(options);
+            profilePaths.put(driver, profilePath);
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+            return driver;
+        } catch (RuntimeException e) {
+            deleteProfileDirectory(profilePath);
+            throw e;
+        }
+    }
+
+    static Path createProfilePath(long threadId, boolean headless, String uniqueId) {
+        String mode = headless ? "-headless" : "";
+        return PROFILE_ROOT.resolve(
+                "profile-" + threadId + mode + "-" + uniqueId).normalize();
+    }
+
+    private void closeDriverAndProfile(WebDriver driver, String owner) {
+        Path profilePath = profilePaths.remove(driver);
+        try {
+            driver.quit();
+            log.info("Closed WebDriver instance for {}", owner);
+        } catch (Exception e) {
+            log.warn("Error closing WebDriver for {}: {}", owner, e.getMessage());
+        } finally {
+            deleteProfileDirectory(profilePath);
+        }
+    }
+
+    private static void deleteProfileDirectory(Path profilePath) {
+        if (profilePath == null) {
+            return;
+        }
+
+        Path normalized = profilePath.toAbsolutePath().normalize();
+        if (!normalized.startsWith(PROFILE_ROOT) || normalized.equals(PROFILE_ROOT)) {
+            log.warn("Refusing to delete unexpected Chrome profile path: {}", normalized);
+            return;
+        }
+
+        try {
+            if (!Files.exists(normalized)) {
+                return;
+            }
+            try (var paths = Files.walk(normalized)) {
+                for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.deleteIfExists(path);
+                }
+            }
+        } catch (IOException e) {
+            log.debug("Could not fully delete Chrome profile {}: {}", normalized, e.getMessage());
+        }
     }
 }

@@ -68,9 +68,18 @@ public class TestQuestionService {
                 // Notify listeners about new question
                 List<String> answers = jsonConverter.getAnswersFromJson(entity);
                 for (TestQuestionListener listener : listeners) {
-                    listener.onNewQuestion(savedQuestion, answers);
+                    try {
+                        listener.onNewQuestion(savedQuestion, answers);
+                    } catch (RuntimeException e) {
+                        // A UI listener must not roll back an otherwise valid
+                        // database import (for example in headless operation).
+                        log.warn("Question listener failed after saving hash {}: {}",
+                                hash, e.getMessage());
+                    }
                 }
             } else {
+                repository.findFirstByQuestionHashIn(compatibleHashes)
+                        .ifPresent(existing -> enrichMissingProvenance(existing, entity));
                 log.debug("Skipped duplicate question: [hash={}] {}", hash, entity.getQuestionText());
             }
         }
@@ -82,6 +91,37 @@ public class TestQuestionService {
         parsingStatistics.incrementNewQuestions(newQuestionsCount);
         
         return savedQuestions;
+    }
+
+    private void enrichMissingProvenance(TestQuestion existing, TestQuestion parsed) {
+        boolean changed = false;
+
+        if (existing.getSourceQuizId() == null && parsed.getSourceQuizId() != null) {
+            existing.setSourceQuizId(parsed.getSourceQuizId());
+            changed = true;
+        }
+        if (isBlank(existing.getSourceUrl()) && !isBlank(parsed.getSourceUrl())) {
+            existing.setSourceUrl(parsed.getSourceUrl());
+            changed = true;
+        }
+        if (isBlank(existing.getSourceLanguage()) && !isBlank(parsed.getSourceLanguage())) {
+            existing.setSourceLanguage(parsed.getSourceLanguage());
+            changed = true;
+        }
+        if (existing.getQuestionType() == null && parsed.getQuestionType() != null) {
+            existing.setQuestionType(parsed.getQuestionType());
+            changed = true;
+        }
+
+        if (changed) {
+            repository.save(existing);
+            log.debug("Added missing source metadata to duplicate question: [hash={}]",
+                    existing.getQuestionHash());
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     public List<TestQuestion> searchQuestions(String searchText) {

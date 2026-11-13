@@ -36,8 +36,12 @@ public class TestCenterNavigator {
             "#mod_quiz_preflight_form #id_submitbutton, "
                     + "#mod_quiz_preflight_form button[type='submit'], "
                     + "#mod_quiz_preflight_form input[type='submit']");
-    private static final By SUBMIT_ALL_BUTTON_SELECTOR = By.cssSelector(
-            ".submitbtns button[type='submit'], .submitbtns input[type='submit']");
+    static final String SUBMIT_ALL_BUTTON_CSS =
+            ".submitbtns form[action*='/mod/quiz/processattempt.php'] "
+                    + "button.btn-primary[type='submit'], "
+                    + ".submitbtns form[action*='/mod/quiz/processattempt.php'] "
+                    + "input.btn-primary[type='submit']";
+    private static final By SUBMIT_ALL_BUTTON_SELECTOR = By.cssSelector(SUBMIT_ALL_BUTTON_CSS);
     private static final By CONFIRM_SUBMIT_BUTTON_SELECTOR = By.cssSelector("button.btn-primary[data-action='save']");
     
     private static final int DEFAULT_TIMEOUT_SECONDS = 10;

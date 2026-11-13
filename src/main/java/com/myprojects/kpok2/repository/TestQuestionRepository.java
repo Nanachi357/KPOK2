@@ -15,6 +15,7 @@ public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long
     boolean existsByQuestionHash(String hash);
     boolean existsByQuestionHashIn(Collection<String> hashes);
     Optional<TestQuestion> findByQuestionHash(String hash);
+    Optional<TestQuestion> findFirstByQuestionHashIn(Collection<String> hashes);
 
     @Query("SELECT DISTINCT q FROM TestQuestion q " +
             "WHERE LOWER(q.questionText) LIKE LOWER(CONCAT('%', :searchText, '%')) " +
