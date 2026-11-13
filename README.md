@@ -80,6 +80,7 @@ This repository contains the application source code only; it does not publish a
    - Question type, language, quiz ID, source URL, normalization version, and the full correct-answer list are retained
    - Every distinct quiz/language origin is stored separately, so one canonical question can be linked to multiple catalog entries without duplication
    - Existing source fields are backfilled into the normalized origin table automatically on upgrade
+   - Each collected Moodle attempt has an idempotent history row with completeness and question-count metrics; repeated verification preserves the initial new-question count
    - Statistics about new questions are updated
 
 4. **Question Search and Retrieval**
