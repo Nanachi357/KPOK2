@@ -27,6 +27,7 @@ public class TestQuestionService {
     private final TestQuestionMapper testQuestionMapper;
     private final TestParsingStatistics parsingStatistics;
     private final JsonConverter jsonConverter;
+    private final QuestionOriginService questionOriginService;
     
     private final List<TestQuestionListener> listeners = new CopyOnWriteArrayList<>();
     
@@ -63,6 +64,7 @@ public class TestQuestionService {
             if (!repository.existsByQuestionHashIn(compatibleHashes)) {
                 TestQuestion savedQuestion = repository.save(entity);
                 savedQuestions.add(savedQuestion);
+                questionOriginService.recordOrigin(savedQuestion, entity);
                 log.debug("Saved new question: [hash={}] {}", hash, entity.getQuestionText());
                 
                 // Notify listeners about new question
@@ -79,7 +81,10 @@ public class TestQuestionService {
                 }
             } else {
                 repository.findFirstByQuestionHashIn(compatibleHashes)
-                        .ifPresent(existing -> enrichMissingProvenance(existing, entity));
+                        .ifPresent(existing -> {
+                            enrichMissingProvenance(existing, entity);
+                            questionOriginService.recordOrigin(existing, entity);
+                        });
                 log.debug("Skipped duplicate question: [hash={}] {}", hash, entity.getQuestionText());
             }
         }

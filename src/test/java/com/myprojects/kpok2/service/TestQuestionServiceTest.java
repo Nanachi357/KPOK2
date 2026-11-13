@@ -32,7 +32,8 @@ class TestQuestionServiceTest {
         TestQuestionMapper mapper = mock(TestQuestionMapper.class);
         TestParsingStatistics statistics = mock(TestParsingStatistics.class);
         TestQuestionService service = new TestQuestionService(
-                repository, mapper, statistics, mock(JsonConverter.class));
+                repository, mapper, statistics, mock(JsonConverter.class),
+                mock(QuestionOriginService.class));
 
         ParsedTestQuestionDto dto = ParsedTestQuestionDto.builder()
                 .answers(List.of("a. Три", "б. Чотири"))
@@ -62,8 +63,10 @@ class TestQuestionServiceTest {
         TestQuestionMapper mapper = mock(TestQuestionMapper.class);
         TestParsingStatistics statistics = mock(TestParsingStatistics.class);
         JsonConverter jsonConverter = mock(JsonConverter.class);
+        QuestionOriginService originService = mock(QuestionOriginService.class);
         TestQuestionService service = new TestQuestionService(
-                repository, mapper, statistics, jsonConverter);
+                repository, mapper, statistics, jsonConverter,
+                originService);
 
         ParsedTestQuestionDto dto = ParsedTestQuestionDto.builder().build();
         TestQuestion entity = TestQuestion.builder().questionHash("hash").build();
@@ -79,6 +82,7 @@ class TestQuestionServiceTest {
 
         assertEquals(List.of(entity), saved);
         verify(repository).save(entity);
+        verify(originService).recordOrigin(entity, entity);
         verify(statistics).incrementNewQuestions(1);
     }
 
@@ -86,8 +90,10 @@ class TestQuestionServiceTest {
     void enrichesMissingProvenanceOnLegacyDuplicate() {
         TestQuestionRepository repository = mock(TestQuestionRepository.class);
         TestQuestionMapper mapper = mock(TestQuestionMapper.class);
+        QuestionOriginService originService = mock(QuestionOriginService.class);
         TestQuestionService service = new TestQuestionService(
-                repository, mapper, mock(TestParsingStatistics.class), mock(JsonConverter.class));
+                repository, mapper, mock(TestParsingStatistics.class), mock(JsonConverter.class),
+                originService);
 
         ParsedTestQuestionDto dto = ParsedTestQuestionDto.builder()
                 .legacyNormalizedText("legacy text")
@@ -117,5 +123,6 @@ class TestQuestionServiceTest {
         assertEquals("uk", existing.getSourceLanguage());
         assertEquals(QuestionType.SINGLE_CHOICE, existing.getQuestionType());
         verify(repository).save(existing);
+        verify(originService).recordOrigin(existing, parsed);
     }
 }

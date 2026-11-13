@@ -78,6 +78,8 @@ This repository contains the application source code only; it does not publish a
    - An iteration succeeds only when every discovered review question was parsed
    - The attempt summary reports pages, parsed questions, new questions, duplicates, and rejected questions
    - Question type, language, quiz ID, source URL, normalization version, and the full correct-answer list are retained
+   - Every distinct quiz/language origin is stored separately, so one canonical question can be linked to multiple catalog entries without duplication
+   - Existing source fields are backfilled into the normalized origin table automatically on upgrade
    - Statistics about new questions are updated
 
 4. **Question Search and Retrieval**
