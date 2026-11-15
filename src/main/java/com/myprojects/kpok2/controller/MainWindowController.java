@@ -118,7 +118,7 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     
     @Override
     public void onNewQuestion(TestQuestion question, List<String> answers) {
-        appendNewTest(question.getQuestionText() + "\n" +
+        appendNewTest(formatContext(question) + question.getQuestionText() + "\n" +
                      "Answer Options:\n" +
                      answers.stream().map(answer -> "  " + answer).collect(Collectors.joining("\n")) + "\n" +
                      "Correct Answer: " + question.getCorrectAnswer() + "\n" +
@@ -625,7 +625,8 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
                     if (shouldNumber) {
                         content.append(testNumber++).append(". ");
                     }
-                    content.append(question.getQuestionText()).append("\n")
+                    content.append(formatContext(question))
+                           .append(question.getQuestionText()).append("\n")
                            .append("Answer Options:\n")
                            .append(answers.stream().map(answer -> "  " + answer).collect(Collectors.joining("\n")))
                            .append("\n")
@@ -642,4 +643,10 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
             log.error("Error exporting all tests: {}", e.getMessage(), e);
         }
     }
-} 
+
+    private String formatContext(TestQuestion question) {
+        return question.getContextText() == null || question.getContextText().isBlank()
+                ? ""
+                : "Context:\n" + question.getContextText() + "\n\n";
+    }
+}

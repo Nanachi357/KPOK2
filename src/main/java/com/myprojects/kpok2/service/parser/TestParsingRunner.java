@@ -4,9 +4,9 @@ import com.myprojects.kpok2.config.DebugProperties;
 import com.myprojects.kpok2.model.dto.ReviewPageParsingResult;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import com.myprojects.kpok2.service.TestQuestionService;
+import com.myprojects.kpok2.service.catalog.QuizCatalogCache;
 import com.myprojects.kpok2.service.navigation.NavigationSession;
 import com.myprojects.kpok2.service.navigation.NavigationSessionFactory;
-import com.myprojects.kpok2.util.TestParserConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
@@ -30,6 +30,7 @@ public class TestParsingRunner {
     private final TestQuestionService testQuestionService;
     private final DebugProperties debugProperties;
     private final TestParsingStatistics parsingStatistics;
+    private final QuizCatalogCache quizCatalogCache;
     
     /**
      * Process test URL using existing navigation session
@@ -61,7 +62,7 @@ public class TestParsingRunner {
             }
 
             Document document = Jsoup.parse(driver.getPageSource(), url);
-            discoveredQuestions = document.select(TestParserConstants.QUESTION_SELECTOR).size();
+            discoveredQuestions = questionParser.countQuestionContainers(document);
             if (discoveredQuestions == 0) {
                 log.error("No Moodle question containers found at URL: {}", url);
                 return ReviewPageParsingResult.failure(
@@ -71,7 +72,8 @@ public class TestParsingRunner {
             List<ParsedTestQuestionDto> questions = questionParser.parseQuestions(
                     document,
                     session.getQuizTarget().viewUrl(),
-                    session.getQuizTarget().courseModuleId());
+                    session.getQuizTarget().courseModuleId(),
+                    catalogLanguageHint(session.getQuizTarget().courseModuleId()));
             parsedQuestions = questions.size();
 
             // Save parsed questions
@@ -114,6 +116,19 @@ public class TestParsingRunner {
                     newQuestionsCount,
                     e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
         }
+    }
+
+    private String catalogLanguageHint(long quizId) {
+        var snapshot = quizCatalogCache.load();
+        if (snapshot == null) {
+            return null;
+        }
+        return snapshot.entries().stream()
+                .filter(entry -> entry.courseModuleId() == quizId)
+                .map(entry -> entry.language())
+                .filter(language -> language != null && !language.isBlank())
+                .findFirst()
+                .orElse(null);
     }
     
     /**

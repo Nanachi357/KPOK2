@@ -64,16 +64,35 @@ public class TestQuestionParser {
 
     public List<ParsedTestQuestionDto> parseQuestions(
             Document doc, String sourceUrl, Long sourceQuizId) {
+        return parseQuestions(doc, sourceUrl, sourceQuizId, null);
+    }
+
+    public List<ParsedTestQuestionDto> parseQuestions(
+            Document doc,
+            String sourceUrl,
+            Long sourceQuizId,
+            String languageHint) {
         List<ParsedTestQuestionDto> questions = new ArrayList<>();
-        Elements questionElements = doc.select(TestParserConstants.QUESTION_SELECTOR);
-        String sourceLanguage = documentLanguage(doc);
-        
-        log.info("Found {} question elements", questionElements.size());
-        
-        for (Element questionElement : questionElements) {
+        Elements pageElements = doc.select(TestParserConstants.QUESTION_SELECTOR);
+        String documentLanguage = documentLanguage(doc);
+        String contextText = null;
+
+        log.info("Found {} question containers and {} context blocks",
+                countQuestionContainers(doc), countContextBlocks(doc));
+
+        for (Element questionElement : pageElements) {
+            if (isContextBlock(questionElement)) {
+                contextText = extractContextText(questionElement);
+                continue;
+            }
             try {
                 ParsedTestQuestionDto question = parseQuestion(
-                        questionElement, sourceUrl, sourceQuizId, sourceLanguage);
+                        questionElement,
+                        sourceUrl,
+                        sourceQuizId,
+                        contextText,
+                        documentLanguage,
+                        languageHint);
                 if (question != null) {
                     questions.add(question);
                 }
@@ -83,6 +102,22 @@ public class TestQuestionParser {
         }
         
         return questions;
+    }
+
+    /**
+     * Counts only answerable Moodle question containers. Description and
+     * information blocks provide context but are not questions themselves.
+     */
+    public int countQuestionContainers(Document document) {
+        return (int) document.select(TestParserConstants.QUESTION_SELECTOR).stream()
+                .filter(element -> !isContextBlock(element))
+                .count();
+    }
+
+    private int countContextBlocks(Document document) {
+        return (int) document.select(TestParserConstants.QUESTION_SELECTOR).stream()
+                .filter(this::isContextBlock)
+                .count();
     }
     
     /**
@@ -94,7 +129,9 @@ public class TestQuestionParser {
             Element questionElement,
             String sourceUrl,
             Long sourceQuizId,
-            String sourceLanguage) {
+            String contextText,
+            String documentLanguage,
+            String languageHint) {
         try {
             Element questionTextElement = questionElement.selectFirst("div.qtext");
             if (questionTextElement == null) {
@@ -113,6 +150,13 @@ public class TestQuestionParser {
                     .map(String::trim)
                     .filter(text -> !text.isEmpty())
                     .toList();
+            String sourceLanguage = contentLanguage(
+                    String.join(" ", List.of(
+                            contextText == null ? "" : contextText,
+                            questionText,
+                            String.join(" ", answers))),
+                    documentLanguage,
+                    languageHint);
 
             Element correctAnswerElement = questionElement.selectFirst("div.rightanswer");
             String feedbackText = correctAnswerElement == null
@@ -151,6 +195,8 @@ public class TestQuestionParser {
             return ParsedTestQuestionDto.builder()
                     .questionText(questionText)
                     .normalizedText(normalizer.normalizeText(questionText))
+                    .contextText(contextText)
+                    .normalizedContext(normalizer.normalizeText(contextText))
                     .answers(answers)
                     .legacyAnswers(legacyAnswers)
                     .normalizedAnswers(normalizedAnswers)
@@ -266,6 +312,104 @@ public class TestQuestionParser {
             return null;
         }
         return html.attr("lang").split("[-_]", 2)[0].toLowerCase(Locale.ROOT);
+    }
+
+    private boolean isContextBlock(Element element) {
+        return element.is(TestParserConstants.CONTEXT_SELECTOR);
+    }
+
+    private String extractContextText(Element element) {
+        Element questionText = element.selectFirst(TestParserConstants.QUESTION_TEXT_SELECTOR);
+        String text = (questionText == null ? element : questionText).text().trim();
+        return text.isBlank() ? null : text;
+    }
+
+    private String contentLanguage(
+            String content, String documentLanguage, String languageHint) {
+        int latin = 0;
+        int cyrillic = 0;
+        int han = 0;
+        int hiraganaOrKatakana = 0;
+        int hangul = 0;
+        int greek = 0;
+        int arabic = 0;
+        int hebrew = 0;
+        int devanagari = 0;
+
+        for (int offset = 0; offset < content.length();) {
+            int codePoint = content.codePointAt(offset);
+            offset += Character.charCount(codePoint);
+            switch (Character.UnicodeScript.of(codePoint)) {
+                case LATIN -> latin++;
+                case CYRILLIC -> cyrillic++;
+                case HAN -> han++;
+                case HIRAGANA, KATAKANA -> hiraganaOrKatakana++;
+                case HANGUL -> hangul++;
+                case GREEK -> greek++;
+                case ARABIC -> arabic++;
+                case HEBREW -> hebrew++;
+                case DEVANAGARI -> devanagari++;
+                default -> {
+                    // Punctuation, digits and unsupported scripts carry no
+                    // useful language signal here.
+                }
+            }
+        }
+
+        if (hiraganaOrKatakana > 0) {
+            return "ja";
+        }
+        if (hangul > 0) {
+            return "ko";
+        }
+        if (han > Math.max(latin, cyrillic)) {
+            return "zh";
+        }
+        if (cyrillic > latin) {
+            if (isCyrillicLanguage(languageHint)) {
+                return normalizedLanguage(languageHint);
+            }
+            if (isCyrillicLanguage(documentLanguage)) {
+                return normalizedLanguage(documentLanguage);
+            }
+            return containsUkrainianLetters(content) ? "uk" : "und";
+        }
+        if (greek > 0) {
+            return "el";
+        }
+        if (arabic > 0) {
+            return "ar";
+        }
+        if (hebrew > 0) {
+            return "he";
+        }
+        if (devanagari > 0) {
+            return "hi";
+        }
+        if (latin > 0) {
+            String hint = normalizedLanguage(languageHint);
+            return hint != null && !isCyrillicLanguage(hint) ? hint : "en";
+        }
+
+        String hint = normalizedLanguage(languageHint);
+        return hint != null ? hint : normalizedLanguage(documentLanguage);
+    }
+
+    private boolean containsUkrainianLetters(String content) {
+        return content.toLowerCase(Locale.ROOT).matches(".*[іїєґ].*");
+    }
+
+    private boolean isCyrillicLanguage(String language) {
+        String normalized = normalizedLanguage(language);
+        return normalized != null
+                && Set.of("uk", "ru", "be", "bg", "mk", "sr").contains(normalized);
+    }
+
+    private String normalizedLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            return null;
+        }
+        return language.trim().split("[-_]", 2)[0].toLowerCase(Locale.ROOT);
     }
 
     private boolean containsPhrase(String text, String phrase) {

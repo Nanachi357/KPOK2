@@ -31,4 +31,19 @@ class TestQuestionMapperUtilsTest {
                         List.of("а. Три", "б. Чотири", "в. П'ять"),
                         "б чотири"));
     }
+
+    @Test
+    void v3HashIncludesContextButPreservesV2ForOrdinaryQuestions() {
+        String v2 = TestQuestionMapperUtils.generateHashV2(
+                "question", List.of("alpha", "beta"), List.of("beta"));
+        String withoutContext = TestQuestionMapperUtils.generateHashV3(
+                "", "question", List.of("alpha", "beta"), List.of("beta"));
+        String firstContext = TestQuestionMapperUtils.generateHashV3(
+                "first case", "question", List.of("alpha", "beta"), List.of("beta"));
+        String secondContext = TestQuestionMapperUtils.generateHashV3(
+                "second case", "question", List.of("alpha", "beta"), List.of("beta"));
+
+        assertEquals(v2, withoutContext);
+        org.junit.jupiter.api.Assertions.assertNotEquals(firstContext, secondContext);
+    }
 }

@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class TestQuestionParserTest {
 
@@ -85,15 +86,38 @@ class TestQuestionParserTest {
         assertEquals(List.of("b. 東京"), question.getCorrectAnswers());
     }
 
+    @Test
+    void associatesContextAndDetectsEnglishContentOnUkrainianInterface() throws IOException {
+        TestQuestionParser parser = new TestQuestionParser(new TestNormalizer());
+        String html = fixture("review-question-en-context.html");
+        var document = Jsoup.parse(html);
+
+        assertEquals(2, parser.countQuestionContainers(document));
+
+        var questions = parser.parseQuestions(
+                document,
+                "https://test.testcentr.org.ua/mod/quiz/view.php?id=70",
+                70L,
+                "uk");
+
+        assertEquals(2, questions.size());
+        for (ParsedTestQuestionDto question : questions) {
+            assertEquals(
+                    "A patient with smallpox remains infectious until the last scab falls off.",
+                    question.getContextText());
+            assertEquals("en", question.getSourceLanguage());
+            assertEquals(TestNormalizer.CURRENT_VERSION, question.getNormalizationVersion());
+        }
+    }
+
+    @Test
+    void ordinaryQuestionHasNoContext() throws IOException {
+        assertNull(parseOne("review-question-en-single.html").getContextText());
+    }
+
     private ParsedTestQuestionDto parseOne(String fixtureName) throws IOException {
         TestQuestionParser parser = new TestQuestionParser(new TestNormalizer());
-        String html;
-        try (var stream = getClass().getResourceAsStream("/fixtures/moodle/" + fixtureName)) {
-            if (stream == null) {
-                throw new IOException("Missing fixture: " + fixtureName);
-            }
-            html = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-        }
+        String html = fixture(fixtureName);
 
         var questions = parser.parseQuestions(
                 Jsoup.parse(html),
@@ -101,5 +125,14 @@ class TestQuestionParserTest {
                 173L);
         assertEquals(1, questions.size());
         return questions.get(0);
+    }
+
+    private String fixture(String fixtureName) throws IOException {
+        try (var stream = getClass().getResourceAsStream("/fixtures/moodle/" + fixtureName)) {
+            if (stream == null) {
+                throw new IOException("Missing fixture: " + fixtureName);
+            }
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 }

@@ -117,6 +117,11 @@ public class TestQuestionService {
             existing.setQuestionType(parsed.getQuestionType());
             changed = true;
         }
+        if (isBlank(existing.getContextText()) && !isBlank(parsed.getContextText())) {
+            existing.setContextText(parsed.getContextText());
+            existing.setNormalizedContext(parsed.getNormalizedContext());
+            changed = true;
+        }
 
         if (changed) {
             repository.save(existing);

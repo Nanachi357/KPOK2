@@ -27,6 +27,12 @@ public class TestQuestion {
     @Column(columnDefinition = "TEXT")
     private String normalizedText;
 
+    @Column(columnDefinition = "TEXT")
+    private String contextText;
+
+    @Column(columnDefinition = "TEXT")
+    private String normalizedContext;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String possibleAnswersJson;

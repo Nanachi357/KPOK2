@@ -93,6 +93,35 @@ public class TestQuestionMapperUtils {
         return md5(combinedData, true);
     }
 
+    /**
+     * Generates a context-aware hash. Questions without a context retain the
+     * v2 hash so upgrading does not duplicate ordinary quiz questions.
+     */
+    public static String generateHashV3(
+            String normalizedContext,
+            String normalizedText,
+            List<String> normalizedAnswers,
+            List<String> normalizedCorrectAnswers) {
+        if (normalizedContext == null || normalizedContext.isBlank()) {
+            return generateHashV2(normalizedText, normalizedAnswers, normalizedCorrectAnswers);
+        }
+
+        if (normalizedText == null || normalizedAnswers == null
+                || normalizedCorrectAnswers == null) {
+            throw new IllegalArgumentException("Cannot generate hash from null values");
+        }
+
+        List<String> sortedAnswers = new ArrayList<>(normalizedAnswers);
+        Collections.sort(sortedAnswers);
+        List<String> sortedCorrectAnswers = new ArrayList<>(normalizedCorrectAnswers);
+        Collections.sort(sortedCorrectAnswers);
+
+        String combinedData = normalizedContext + "|" + normalizedText + "|"
+                + String.join("|", sortedAnswers) + "|"
+                + String.join("|", sortedCorrectAnswers);
+        return md5(combinedData, true);
+    }
+
     private static String md5(String value, boolean forceUtf8) {
         
         try {

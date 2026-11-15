@@ -19,6 +19,7 @@ public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long
 
     @Query("SELECT DISTINCT q FROM TestQuestion q " +
             "WHERE LOWER(q.questionText) LIKE LOWER(CONCAT('%', :searchText, '%')) " +
+            "OR LOWER(q.contextText) LIKE LOWER(CONCAT('%', :searchText, '%')) " +
             "OR LOWER(q.correctAnswer) LIKE LOWER(CONCAT('%', :searchText, '%'))")
     List<TestQuestion> searchByAnyFragment(@Param("searchText") String searchText);
 }

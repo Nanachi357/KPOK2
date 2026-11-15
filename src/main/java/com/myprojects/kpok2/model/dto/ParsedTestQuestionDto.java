@@ -10,6 +10,8 @@ import java.util.List;
 public class ParsedTestQuestionDto {
     private String questionText;
     private String normalizedText;
+    private String contextText;
+    private String normalizedContext;
     private List<String> answers;
     private List<String> legacyAnswers;
     private List<String> normalizedAnswers;

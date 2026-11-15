@@ -6,6 +6,7 @@ import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import com.myprojects.kpok2.model.dto.ReviewPageParsingResult;
 import com.myprojects.kpok2.service.TestQuestionService;
+import com.myprojects.kpok2.service.catalog.QuizCatalogCache;
 import com.myprojects.kpok2.service.navigation.AccountCredentials;
 import com.myprojects.kpok2.service.navigation.NavigationSession;
 import com.myprojects.kpok2.service.navigation.NavigationSessionFactory;
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -74,12 +76,14 @@ class TestParsingRunnerTest {
         when(session.getQuizTarget()).thenReturn(TARGET);
         when(pageNavigator.navigateToTestUrl(driver, REVIEW_URL)).thenReturn(true);
         when(driver.getPageSource()).thenReturn(reviewHtml(discovered));
+        when(questionParser.countQuestionContainers(any(Document.class)))
+                .thenReturn(discovered);
 
         List<ParsedTestQuestionDto> parsedQuestions = java.util.stream.IntStream.range(0, parsed)
                 .mapToObj(index -> mock(ParsedTestQuestionDto.class))
                 .toList();
         when(questionParser.parseQuestions(
-                any(Document.class), eq(TARGET.viewUrl()), eq(173L)))
+                any(Document.class), eq(TARGET.viewUrl()), eq(173L), isNull()))
                 .thenReturn(parsedQuestions);
         List<TestQuestion> savedQuestions = java.util.stream.IntStream.range(0, saved)
                 .mapToObj(index -> mock(TestQuestion.class))
@@ -92,7 +96,8 @@ class TestParsingRunnerTest {
                 questionParser,
                 questionService,
                 debugProperties,
-                statistics);
+                statistics,
+                mock(QuizCatalogCache.class));
         return new Fixture(runner, session, statistics);
     }
 

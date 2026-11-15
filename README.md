@@ -67,24 +67,27 @@ This repository contains the application source code only; it does not publish a
    - Locates Moodle controls by structure and URL instead of translated button captions
    - Prefers Moodle's `showall=1` review and falls back to the pagination links actually present
    - Processes single-choice, multiple-choice, and true/false items
+   - Treats Moodle description/information blocks as shared context rather than questions
+   - Attaches each context passage to the questions that follow it
    - Extracts one or more correct answers without relying on a localized feedback prefix
+   - Detects the language from the actual question content, using catalog metadata only as a hint
    - Applies Unicode-aware normalization to determine uniqueness across languages
    - Collects statistics about processed and newly identified items
 
 3. **Data Storage**
-   - A deterministic MD5 identity is generated from normalized question text, sorted options, and sorted correct answers
+   - A deterministic MD5 identity is generated from normalized context, question text, sorted options, and sorted correct answers
    - Both current and legacy hashes are checked so an existing database is not filled with duplicates after upgrading
    - Unique questions are stored in the database
    - An iteration succeeds only when every discovered review question was parsed
    - The attempt summary reports pages, parsed questions, new questions, duplicates, and rejected questions
-   - Question type, language, quiz ID, source URL, normalization version, and the full correct-answer list are retained
+   - Context, question type, language, quiz ID, source URL, normalization version, and the full correct-answer list are retained
    - Every distinct quiz/language origin is stored separately, so one canonical question can be linked to multiple catalog entries without duplication
    - Existing source fields are backfilled into the normalized origin table automatically on upgrade
    - Each collected Moodle attempt has an idempotent history row with completeness and question-count metrics; repeated verification preserves the initial new-question count
    - Statistics about new questions are updated
 
 4. **Question Search and Retrieval**
-   - API allows searching questions by text fragments
+   - API allows searching question and context text fragments
    - Retrieval of all saved questions is possible
 
 5. **Statistics and Monitoring**
@@ -95,7 +98,7 @@ This repository contains the application source code only; it does not publish a
 ## Implementation Features
 
 ### Question Uniqueness
-The system determines question uniqueness from the normalized question text, answer options, and correct answers. Normalization includes:
+The system determines question uniqueness from the normalized context, question text, answer options, and correct answers. Questions without context retain their previous v2 identity. Normalization includes:
 - Unicode NFKC normalization while preserving letters, combining marks, and numbers from any script
 - Locale-independent lowercase conversion
 - Removing answer labels such as `a.`, `б.`, or `2)` from comparison values
