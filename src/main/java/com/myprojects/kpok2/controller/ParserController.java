@@ -1,7 +1,7 @@
 package com.myprojects.kpok2.controller;
 
-import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.model.dto.TestParsingResultDto;
+import com.myprojects.kpok2.model.dto.QuestionRecordDto;
 import com.myprojects.kpok2.service.TestQuestionService;
 import com.myprojects.kpok2.service.parser.TestParser;
 import lombok.RequiredArgsConstructor;
@@ -30,12 +30,12 @@ public class ParserController {
     }
 
     @GetMapping("/questions")
-    public ResponseEntity<List<TestQuestion>> getAllQuestions() {
-        return ResponseEntity.ok(questionService.getAllQuestions());
+    public ResponseEntity<List<QuestionRecordDto>> getAllQuestions() {
+        return ResponseEntity.ok(questionService.getAllQuestionRecords());
     }
 
     @GetMapping("/questions/search")
-    public ResponseEntity<List<TestQuestion>> searchQuestions(@RequestParam String query) {
-        return ResponseEntity.ok(questionService.searchQuestions(query));
+    public ResponseEntity<List<QuestionRecordDto>> searchQuestions(@RequestParam String query) {
+        return ResponseEntity.ok(questionService.searchQuestionRecords(query));
     }
 }

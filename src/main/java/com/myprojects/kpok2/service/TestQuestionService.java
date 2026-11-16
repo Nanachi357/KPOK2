@@ -3,10 +3,9 @@ package com.myprojects.kpok2.service;
 import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.repository.TestQuestionRepository;
 import com.myprojects.kpok2.service.mapper.TestQuestionMapper;
-import com.myprojects.kpok2.service.mapper.TestQuestionMapperUtils;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
+import com.myprojects.kpok2.model.dto.QuestionRecordDto;
 import com.myprojects.kpok2.service.parser.TestParsingStatistics;
-import com.myprojects.kpok2.util.JsonConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,8 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 @Slf4j
 @Service
@@ -26,13 +23,13 @@ public class TestQuestionService {
     private final TestQuestionRepository repository;
     private final TestQuestionMapper testQuestionMapper;
     private final TestParsingStatistics parsingStatistics;
-    private final JsonConverter jsonConverter;
     private final QuestionOriginService questionOriginService;
+    private final QuestionVersionService questionVersionService;
     
     private final List<TestQuestionListener> listeners = new CopyOnWriteArrayList<>();
     
     public interface TestQuestionListener {
-        void onNewQuestion(TestQuestion question, List<String> answers);
+        void onNewQuestion(QuestionRecordDto question);
     }
     
     public void addListener(TestQuestionListener listener) {
@@ -44,58 +41,77 @@ public class TestQuestionService {
     }
 
     @Transactional
-    public List<TestQuestion> saveUniqueQuestions(List<ParsedTestQuestionDto> questions) {
+    public synchronized SaveResult saveQuestions(
+            List<ParsedTestQuestionDto> questions) {
         List<TestQuestion> savedQuestions = new ArrayList<>();
+        int newQuestionRecords = 0;
+        int newRevisions = 0;
+        int newAnswerKeys = 0;
 
         for (ParsedTestQuestionDto dto : questions) {
             TestQuestion entity = testQuestionMapper.toEntity(dto);
             String hash = entity.getQuestionHash();
 
-            Set<String> compatibleHashes = new LinkedHashSet<>();
-            compatibleHashes.add(hash);
-            if (dto.getLegacyNormalizedText() != null
-                    && dto.getLegacyNormalizedCorrectAnswer() != null) {
-                compatibleHashes.add(TestQuestionMapperUtils.generateLegacyHash(
-                        dto.getLegacyNormalizedText(),
-                        dto.getLegacyAnswers() == null ? dto.getAnswers() : dto.getLegacyAnswers(),
-                        dto.getLegacyNormalizedCorrectAnswer()));
+            Optional<TestQuestion> existing = repository.findByQuestionHash(hash);
+            boolean newQuestion = existing.isEmpty();
+            TestQuestion storedQuestion;
+            if (newQuestion) {
+                storedQuestion = repository.save(entity);
+                savedQuestions.add(storedQuestion);
+                log.debug("Saved new canonical question: [hash={}] {}",
+                        hash, entity.getQuestionText());
+            } else {
+                storedQuestion = existing.orElseThrow();
+                enrichMissingProvenance(storedQuestion, entity);
+                log.debug("Skipped duplicate question: [hash={}] {}", hash, entity.getQuestionText());
             }
 
-            if (!repository.existsByQuestionHashIn(compatibleHashes)) {
-                TestQuestion savedQuestion = repository.save(entity);
-                savedQuestions.add(savedQuestion);
-                questionOriginService.recordOrigin(savedQuestion, entity);
-                log.debug("Saved new question: [hash={}] {}", hash, entity.getQuestionText());
-                
-                // Notify listeners about new question
-                List<String> answers = jsonConverter.getAnswersFromJson(entity);
-                for (TestQuestionListener listener : listeners) {
-                    try {
-                        listener.onNewQuestion(savedQuestion, answers);
-                    } catch (RuntimeException e) {
-                        // A UI listener must not roll back an otherwise valid
-                        // database import (for example in headless operation).
-                        log.warn("Question listener failed after saving hash {}: {}",
-                                hash, e.getMessage());
-                    }
-                }
-            } else {
-                repository.findFirstByQuestionHashIn(compatibleHashes)
-                        .ifPresent(existing -> {
-                            enrichMissingProvenance(existing, entity);
-                            questionOriginService.recordOrigin(existing, entity);
-                        });
-                log.debug("Skipped duplicate question: [hash={}] {}", hash, entity.getQuestionText());
+            questionOriginService.recordOrigin(storedQuestion, entity);
+            QuestionVersionService.VersioningResult versioning =
+                    questionVersionService.recordVersion(storedQuestion, dto);
+
+            if (versioning.newRevision()) {
+                newRevisions++;
+            }
+            if (versioning.newAnswerKey()) {
+                newAnswerKeys++;
+            }
+            if (newQuestion || versioning.newRevision() || versioning.newAnswerKey()) {
+                newQuestionRecords++;
+                notifyListeners(
+                        questionVersionService.toRecord(storedQuestion, dto, versioning),
+                        hash);
             }
         }
 
-        int newQuestionsCount = savedQuestions.size();
-        log.info("Saved {} new questions out of {} total questions processed", 
-                newQuestionsCount, questions.size());
+        log.info(
+                "Saved {} new question records ({} canonical, {} revisions, {} keys) "
+                        + "out of {} questions processed",
+                newQuestionRecords,
+                savedQuestions.size(),
+                newRevisions,
+                newAnswerKeys,
+                questions.size());
         
-        parsingStatistics.incrementNewQuestions(newQuestionsCount);
+        parsingStatistics.incrementNewQuestions(newQuestionRecords);
         
-        return savedQuestions;
+        return new SaveResult(
+                savedQuestions,
+                newQuestionRecords,
+                newRevisions,
+                newAnswerKeys);
+    }
+
+    private void notifyListeners(QuestionRecordDto question, String hash) {
+        for (TestQuestionListener listener : listeners) {
+            try {
+                listener.onNewQuestion(question);
+            } catch (RuntimeException e) {
+                // A UI listener must not roll back an otherwise valid database import.
+                log.warn("Question listener failed after saving hash {}: {}",
+                        hash, e.getMessage());
+            }
+        }
     }
 
     private void enrichMissingProvenance(TestQuestion existing, TestQuestion parsed) {
@@ -142,8 +158,29 @@ public class TestQuestionService {
         return repository.findAll();
     }
 
+    public List<QuestionRecordDto> getAllQuestionRecords() {
+        return questionVersionService.getAllRecords();
+    }
+
+    public List<QuestionRecordDto> searchQuestionRecords(String searchText) {
+        return questionVersionService.searchRecords(searchText);
+    }
+
     @SuppressWarnings("unused")
     public Optional<TestQuestion> getQuestionById(Long id) {
         return repository.findById(id);
+    }
+
+    public record SaveResult(
+            List<TestQuestion> newCanonicalQuestions,
+            int newQuestionRecords,
+            int newRevisions,
+            int newAnswerKeys) {
+
+        public SaveResult {
+            newCanonicalQuestions = newCanonicalQuestions == null
+                    ? List.of()
+                    : List.copyOf(newCanonicalQuestions);
+        }
     }
 }

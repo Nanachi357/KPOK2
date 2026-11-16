@@ -1,10 +1,12 @@
 package com.myprojects.kpok2.service.mapper;
 
 import org.junit.jupiter.api.Test;
+import com.myprojects.kpok2.model.QuestionType;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class TestQuestionMapperUtilsTest {
 
@@ -45,5 +47,44 @@ class TestQuestionMapperUtilsTest {
 
         assertEquals(v2, withoutContext);
         org.junit.jupiter.api.Assertions.assertNotEquals(firstContext, secondContext);
+    }
+
+    @Test
+    void canonicalIdentityDoesNotDependOnOptionsOrAnswerKey() {
+        String first = TestQuestionMapperUtils.generateCanonicalHash(
+                "case", "question");
+        String second = TestQuestionMapperUtils.generateCanonicalHash(
+                "case", "question");
+
+        assertEquals(first, second);
+    }
+
+    @Test
+    void revisionIdentityIgnoresOptionOrderButDetectsChangedOptions() {
+        String first = TestQuestionMapperUtils.generateRevisionHash(
+                "canonical",
+                List.of("alpha", "beta"),
+                QuestionType.SINGLE_CHOICE);
+        String reordered = TestQuestionMapperUtils.generateRevisionHash(
+                "canonical",
+                List.of("beta", "alpha"),
+                QuestionType.SINGLE_CHOICE);
+        String changed = TestQuestionMapperUtils.generateRevisionHash(
+                "canonical",
+                List.of("alpha", "gamma"),
+                QuestionType.SINGLE_CHOICE);
+
+        assertEquals(first, reordered);
+        assertNotEquals(first, changed);
+    }
+
+    @Test
+    void answerKeyIdentityDetectsConflictingCorrectAnswers() {
+        String first = TestQuestionMapperUtils.generateAnswerKeyHash(List.of("beta"));
+        String same = TestQuestionMapperUtils.generateAnswerKeyHash(List.of("beta"));
+        String conflict = TestQuestionMapperUtils.generateAnswerKeyHash(List.of("alpha"));
+
+        assertEquals(first, same);
+        assertNotEquals(first, conflict);
     }
 }

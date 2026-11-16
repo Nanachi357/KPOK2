@@ -36,12 +36,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.List;
 import com.myprojects.kpok2.service.TestQuestionService;
-import com.myprojects.kpok2.model.TestQuestion;
+import com.myprojects.kpok2.model.dto.QuestionRecordDto;
 import java.util.concurrent.ScheduledFuture;
 import java.util.prefs.Preferences;
 import java.util.Arrays;
 import java.nio.file.Files;
-import com.myprojects.kpok2.util.JsonConverter;
 import javafx.scene.control.CheckBox;
 
 @Component
@@ -60,9 +59,6 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     
     @Autowired
     private TestQuestionService testQuestionService;
-    
-    @Autowired
-    private JsonConverter jsonConverter;
     
     @FXML
     private Button startStopButton;
@@ -117,11 +113,14 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     }
     
     @Override
-    public void onNewQuestion(TestQuestion question, List<String> answers) {
-        appendNewTest(formatContext(question) + question.getQuestionText() + "\n" +
+    public void onNewQuestion(QuestionRecordDto question) {
+        appendNewTest(formatContext(question) + question.questionText() + "\n" +
                      "Answer Options:\n" +
-                     answers.stream().map(answer -> "  " + answer).collect(Collectors.joining("\n")) + "\n" +
-                     "Correct Answer: " + question.getCorrectAnswer() + "\n" +
+                     question.answers().stream()
+                             .map(answer -> "  " + answer)
+                             .collect(Collectors.joining("\n")) + "\n" +
+                     "Correct Answer: " + question.correctAnswerText() + "\n" +
+                     (question.answerKeyConflict() ? "Answer key conflict: yes\n" : "") +
                      "---\n");
     }
     
@@ -610,7 +609,8 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
             File file = fileChooser.showSaveDialog(newTestsArea.getScene().getWindow());
             
             if (file != null) {
-                List<TestQuestion> allQuestions = testQuestionService.getAllQuestions();
+                List<QuestionRecordDto> allQuestions =
+                        testQuestionService.getAllQuestionRecords();
                 if (allQuestions.isEmpty()) {
                     log.warn("No tests found in the database");
                     return;
@@ -620,17 +620,21 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
                 boolean shouldNumber = numberTestsCheckBox.isSelected();
                 int testNumber = 1;
                 
-                for (TestQuestion question : allQuestions) {
-                    List<String> answers = jsonConverter.getAnswersFromJson(question);
+                for (QuestionRecordDto question : allQuestions) {
                     if (shouldNumber) {
                         content.append(testNumber++).append(". ");
                     }
                     content.append(formatContext(question))
-                           .append(question.getQuestionText()).append("\n")
+                           .append(question.questionText()).append("\n")
                            .append("Answer Options:\n")
-                           .append(answers.stream().map(answer -> "  " + answer).collect(Collectors.joining("\n")))
+                           .append(question.answers().stream()
+                                   .map(answer -> "  " + answer)
+                                   .collect(Collectors.joining("\n")))
                            .append("\n")
-                           .append("Correct Answer: ").append(question.getCorrectAnswer())
+                           .append("Correct Answer: ").append(question.correctAnswerText())
+                           .append(question.answerKeyConflict()
+                                   ? "\nAnswer key conflict: yes"
+                                   : "")
                            .append("\n---\n");
                 }
                 
@@ -644,9 +648,9 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
         }
     }
 
-    private String formatContext(TestQuestion question) {
-        return question.getContextText() == null || question.getContextText().isBlank()
+    private String formatContext(QuestionRecordDto question) {
+        return question.contextText() == null || question.contextText().isBlank()
                 ? ""
-                : "Context:\n" + question.getContextText() + "\n\n";
+                : "Context:\n" + question.contextText() + "\n\n";
     }
 }

@@ -88,7 +88,9 @@ class TestParsingRunnerTest {
         List<TestQuestion> savedQuestions = java.util.stream.IntStream.range(0, saved)
                 .mapToObj(index -> mock(TestQuestion.class))
                 .toList();
-        when(questionService.saveUniqueQuestions(parsedQuestions)).thenReturn(savedQuestions);
+        when(questionService.saveQuestions(parsedQuestions)).thenReturn(
+                new TestQuestionService.SaveResult(
+                        savedQuestions, saved, saved, saved));
 
         TestParsingRunner runner = new TestParsingRunner(
                 sessionFactory,

@@ -2,6 +2,7 @@ package com.myprojects.kpok2.service.mapper;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myprojects.kpok2.model.QuestionType;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -120,6 +121,40 @@ public class TestQuestionMapperUtils {
                 + String.join("|", sortedAnswers) + "|"
                 + String.join("|", sortedCorrectAnswers);
         return md5(combinedData, true);
+    }
+
+    /** Stable identity of the question wording, independent of options and keys. */
+    public static String generateCanonicalHash(
+            String normalizedContext, String normalizedText) {
+        if (normalizedText == null) {
+            throw new IllegalArgumentException("Cannot generate canonical hash from null text");
+        }
+        String context = normalizedContext == null ? "" : normalizedContext;
+        return md5(context + "|" + normalizedText, true);
+    }
+
+    /** Identity of an option-set revision, independent of display order. */
+    public static String generateRevisionHash(
+            String canonicalHash,
+            List<String> normalizedAnswers,
+            QuestionType questionType) {
+        if (canonicalHash == null || normalizedAnswers == null || questionType == null) {
+            throw new IllegalArgumentException("Cannot generate revision hash from null values");
+        }
+        List<String> sortedAnswers = new ArrayList<>(normalizedAnswers);
+        Collections.sort(sortedAnswers);
+        return md5(canonicalHash + "|" + questionType + "|"
+                + String.join("|", sortedAnswers), true);
+    }
+
+    /** Identity of a correct-answer set, independent of display order. */
+    public static String generateAnswerKeyHash(List<String> normalizedCorrectAnswers) {
+        if (normalizedCorrectAnswers == null) {
+            throw new IllegalArgumentException("Cannot generate answer-key hash from null values");
+        }
+        List<String> sortedAnswers = new ArrayList<>(normalizedCorrectAnswers);
+        Collections.sort(sortedAnswers);
+        return md5(String.join("|", sortedAnswers), true);
     }
 
     private static String md5(String value, boolean forceUtf8) {

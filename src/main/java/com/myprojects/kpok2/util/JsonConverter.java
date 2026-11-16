@@ -17,13 +17,17 @@ public class JsonConverter {
     private final ObjectMapper objectMapper;
     
     public List<String> getAnswersFromJson(TestQuestion question) {
+        return getAnswersFromJson(question.getPossibleAnswersJson());
+    }
+
+    public List<String> getAnswersFromJson(String json) {
         try {
-            if (question.getPossibleAnswersJson() == null) {
+            if (json == null) {
                 return Collections.emptyList();
             }
-            return objectMapper.readValue(question.getPossibleAnswersJson(), new TypeReference<List<String>>() {});
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
         } catch (JsonProcessingException e) {
             return Collections.emptyList();
         }
     }
-} 
+}

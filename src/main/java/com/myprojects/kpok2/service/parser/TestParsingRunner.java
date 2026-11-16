@@ -74,11 +74,13 @@ public class TestParsingRunner {
                     session.getQuizTarget().viewUrl(),
                     session.getQuizTarget().courseModuleId(),
                     catalogLanguageHint(session.getQuizTarget().courseModuleId()));
+            questions.forEach(question -> question.setSourceAttemptId(session.getAttemptId()));
             parsedQuestions = questions.size();
 
             // Save parsed questions
-            List<com.myprojects.kpok2.model.TestQuestion> savedQuestions = testQuestionService.saveUniqueQuestions(questions);
-            newQuestionsCount = savedQuestions.size();
+            TestQuestionService.SaveResult saveResult =
+                    testQuestionService.saveQuestions(questions);
+            newQuestionsCount = saveResult.newQuestionRecords();
             
             // Update account statistics
             parsingStatistics.registerAccountActivity(username, 1); // Increment page count for this account

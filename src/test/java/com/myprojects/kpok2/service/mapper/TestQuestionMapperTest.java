@@ -7,12 +7,11 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class TestQuestionMapperTest {
 
     @Test
-    void mapsV3MetadataContextAndAnswerLists() {
+    void mapsV4MetadataContextAndAnswerLists() {
         ParsedTestQuestionDto dto = ParsedTestQuestionDto.builder()
                 .questionText("Question")
                 .normalizedText("question")
@@ -24,7 +23,7 @@ class TestQuestionMapperTest {
                 .normalizedCorrectAnswers(List.of("two"))
                 .correctAnswer("b. Two")
                 .normalizedCorrectAnswer("two")
-                .normalizationVersion(3)
+                .normalizationVersion(4)
                 .questionType(QuestionType.SINGLE_CHOICE)
                 .sourceQuizId(173L)
                 .sourceUrl("https://test.testcentr.org.ua/mod/quiz/view.php?id=173")
@@ -39,6 +38,9 @@ class TestQuestionMapperTest {
         assertEquals("Case description", entity.getContextText());
         assertEquals("case description", entity.getNormalizedContext());
         assertEquals(173L, entity.getSourceQuizId());
-        assertNotNull(entity.getQuestionHash());
+        assertEquals(
+                TestQuestionMapperUtils.generateCanonicalHash(
+                        "case description", "question"),
+                entity.getQuestionHash());
     }
 }

@@ -31,8 +31,12 @@ This repository contains the application source code only; it does not publish a
 ### Key Components
 
 #### Data Models
-- `TestQuestion` - main entity representing a test question with answers
+- `TestQuestion` - canonical question identity based on normalized context and wording
+- `QuestionRevision` - one normalized set of answer options for a canonical question
+- `AnswerKey` - one observed correct-answer set for a revision
+- `QuestionObservation` - link to the quiz and attempt where a revision/key was seen
 - `ParsedTestQuestionDto` - DTO for transferring question data between components
+- `QuestionRecordDto` - flattened revision/key representation used by the UI and API
 - `TestParsingResultDto` - DTO for parsing results
 - `StatisticsData` - data structure for parsing statistics
 
@@ -75,9 +79,11 @@ This repository contains the application source code only; it does not publish a
    - Collects statistics about processed and newly identified items
 
 3. **Data Storage**
-   - A deterministic MD5 identity is generated from normalized context, question text, sorted options, and sorted correct answers
-   - Both current and legacy hashes are checked so an existing database is not filled with duplicates after upgrading
-   - Unique questions are stored in the database
+   - Canonical identity is generated only from normalized context and question wording
+   - Option sets are stored as order-independent revisions of the canonical question
+   - Correct-answer sets are stored independently from revisions
+   - A different key for the same revision is retained and reported as a conflict instead of becoming a duplicate question
+   - Every revision/key is linked to the quiz and Moodle attempt where it was observed
    - An iteration succeeds only when every discovered review question was parsed
    - The attempt summary reports pages, parsed questions, new questions, duplicates, and rejected questions
    - Context, question type, language, quiz ID, source URL, normalization version, and the full correct-answer list are retained
@@ -87,8 +93,8 @@ This repository contains the application source code only; it does not publish a
    - Statistics about new questions are updated
 
 4. **Question Search and Retrieval**
-   - API allows searching question and context text fragments
-   - Retrieval of all saved questions is possible
+   - API searches contexts, question wording, answer options, and correct answers
+   - Retrieval returns every revision/key pair, so variants and conflicts are not hidden
 
 5. **Statistics and Monitoring**
    - The system tracks iteration counts, newly added study items, and used accounts
@@ -98,14 +104,17 @@ This repository contains the application source code only; it does not publish a
 ## Implementation Features
 
 ### Question Uniqueness
-The system determines question uniqueness from the normalized context, question text, answer options, and correct answers. Questions without context retain their previous v2 identity. Normalization includes:
+The system uses a three-level identity model:
+- canonical question: normalized context plus normalized question wording;
+- revision: canonical question plus the normalized, sorted option set and question type;
+- answer key: normalized, sorted correct-answer set.
+
+This keeps reordered options together, preserves changed option sets as revisions, and records conflicting keys without silently treating them as unrelated questions. Normalization includes:
 - Unicode NFKC normalization while preserving letters, combining marks, and numbers from any script
 - Locale-independent lowercase conversion
 - Removing answer labels such as `a.`, `б.`, or `2)` from comparison values
 - Collapsing punctuation and repeated whitespace
 - Sorting answer lists before hashing, so display order does not change identity
-
-The previous normalization and hash format are retained for lookup only. This lets an upgraded application recognize rows collected by earlier versions.
 
 ### Asynchronous Processing
 The system uses a thread pool for parallel processing of multiple practice sessions. The configuration in `AsyncConfig` allows adjusting the number of concurrent operations.
@@ -161,9 +170,9 @@ mvn spring-boot:run
 - `GET /api/navigation/status` - Get the current navigation system status
 
 ## Development Plans
-- Improving the question uniqueness algorithm
 - Adding support for images in questions
-- Expanding search capabilities
+- Adding filtered JSON export for revisions, origins, and attempts
+- Adding collection limits and convergence-based stopping
 - Optimizing parsing performance
 
 ## UI Features

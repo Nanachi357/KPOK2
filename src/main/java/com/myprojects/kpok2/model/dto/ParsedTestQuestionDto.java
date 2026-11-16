@@ -26,4 +26,5 @@ public class ParsedTestQuestionDto {
     private Long sourceQuizId;
     private String sourceUrl;
     private String sourceLanguage;
+    private String sourceAttemptId;
 }
