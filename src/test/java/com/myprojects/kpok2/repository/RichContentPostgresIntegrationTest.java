@@ -12,6 +12,7 @@ import com.myprojects.kpok2.model.dto.export.QuestionExportFilter;
 import com.myprojects.kpok2.service.QuestionAssetFetchService;
 import com.myprojects.kpok2.service.QuestionExportService;
 import com.myprojects.kpok2.service.QuestionImportService;
+import com.myprojects.kpok2.service.QuestionImportPersistenceService;
 import com.myprojects.kpok2.service.QuestionOriginService;
 import com.myprojects.kpok2.service.QuestionVersionService;
 import com.myprojects.kpok2.service.TestQuestionService;
@@ -168,8 +169,22 @@ class RichContentPostgresIntegrationTest {
         QuestionExportDocument document = exportService.buildExport(
                 QuestionExportFilter.all());
         String json = objectMapper.writeValueAsString(document);
-        var importPreview = new QuestionImportService(objectMapper)
-                .inspect(document);
+        QuestionImportService importService = new QuestionImportService(objectMapper);
+        var importPreview = importService.inspect(document);
+        long questionCountBeforeImport = questionRepository.count();
+        long revisionCountBeforeImport = revisionRepository.count();
+        long keyCountBeforeImport = answerKeyRepository.count();
+        long originCountBeforeImport = originRepository.count();
+        long observationCountBeforeImport = observationRepository.count();
+        var importResult = new QuestionImportPersistenceService(
+                importService,
+                questionRepository,
+                revisionRepository,
+                answerKeyRepository,
+                originRepository,
+                observationRepository,
+                attemptRepository)
+                .importDocument(document);
 
         assertEquals(QuestionExportDocument.CURRENT_SCHEMA_VERSION,
                 document.schemaVersion());
@@ -177,6 +192,18 @@ class RichContentPostgresIntegrationTest {
                 document.summary().canonicalQuestions());
         assertEquals(questionRepository.count(), document.questions().size());
         assertEquals(document.summary(), importPreview.contents());
+        assertEquals(0, importResult.canonicalQuestionsCreated());
+        assertEquals(document.summary().canonicalQuestions(),
+                importResult.canonicalQuestionsMerged());
+        assertEquals(0, importResult.revisionsCreated());
+        assertEquals(document.summary().revisions(), importResult.revisionsMerged());
+        assertEquals(0, importResult.answerKeysCreated());
+        assertEquals(document.summary().answerKeys(), importResult.answerKeysMerged());
+        assertEquals(questionCountBeforeImport, questionRepository.count());
+        assertEquals(revisionCountBeforeImport, revisionRepository.count());
+        assertEquals(keyCountBeforeImport, answerKeyRepository.count());
+        assertEquals(originCountBeforeImport, originRepository.count());
+        assertEquals(observationCountBeforeImport, observationRepository.count());
         assertTrue(json.contains("\"schemaVersion\":\"kpok2-question-export-v1\""));
         assertTrue(json.contains("\"questions\""));
     }
