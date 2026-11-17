@@ -118,6 +118,9 @@ This repository contains the application source code only; it does not publish a
 
 7. **Statistics and Monitoring**
    - The system tracks iteration counts, newly added study items, and used accounts
+   - Parallel workers reserve attempts from one shared counter, so a finite run cannot exceed its configured total
+   - A normal stop finishes active attempts without starting new ones; immediate interruption remains available for emergencies
+   - Large runs (100 or more attempts) and unlimited runs require an explicit confirmation and explain that random delivery cannot guarantee full bank coverage
    - Statistics can be viewed through a dedicated UI dialog
    - Parsing sessions are logged with detailed information
 
@@ -191,12 +194,13 @@ mvn spring-boot:run
 
 ### Navigation API 
 - `POST /api/navigation/start` - Start the navigation process
-- `POST /api/navigation/stop` - Stop all navigation processes
-- `GET /api/navigation/status` - Get the current navigation system status
+- `POST /api/navigation/stop-after-current` - Stop starting attempts and finish the active attempts
+- `POST /api/navigation/stop` - Interrupt active navigation immediately
+- `GET /api/navigation/status` - Return `running`, `stopping-after-current`, or `stopped`
 
 ## Development Plans
 - Adding portable backup and restore on top of the JSON transfer format
-- Adding warnings, runtime estimates, and graceful stopping for long collection runs
+- Adding runtime estimates for long collection runs
 - Adding a searchable question-library view
 - Optimizing parsing performance
 
@@ -205,7 +209,7 @@ mvn spring-boot:run
 The application provides a graphical user interface (JavaFX) with the following features:
 
 ### Main Window
-- Control buttons for starting/stopping navigation
+- Start, graceful stop-after-current, and confirmed emergency-stop controls with live status
 - Log display for real-time monitoring
 - Filtered, background JSON export with revision and attempt history
 - Preview-first, background JSON import with an explicit confirmation step
