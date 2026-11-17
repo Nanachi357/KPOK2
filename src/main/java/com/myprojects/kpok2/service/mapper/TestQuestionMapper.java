@@ -23,7 +23,7 @@ public interface TestQuestionMapper {
      * Converts DTO to entity using MapStruct
      */
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "questionHash", expression = "java(TestQuestionMapperUtils.generateCanonicalHash(dto.getNormalizedContext(), dto.getNormalizedText()))")
+    @Mapping(target = "questionHash", expression = "java(TestQuestionMapperUtils.generateCanonicalHash(dto.getNormalizedContext(), dto.getNormalizedText(), dto.getCanonicalContentFingerprint()))")
     @Mapping(target = "parsedAt", expression = "java(LocalDateTime.now())")
     @Mapping(target = "possibleAnswersJson", expression = "java(TestQuestionMapperUtils.answersToJson(dto.getAnswers()))")
     @Mapping(target = "correctAnswersJson", expression = "java(TestQuestionMapperUtils.answersToJson(dto.getCorrectAnswers()))")

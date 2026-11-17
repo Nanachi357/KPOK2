@@ -6,6 +6,7 @@ import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import com.myprojects.kpok2.model.dto.ReviewPageParsingResult;
 import com.myprojects.kpok2.service.TestQuestionService;
+import com.myprojects.kpok2.service.QuestionAssetFetchService;
 import com.myprojects.kpok2.service.catalog.QuizCatalogCache;
 import com.myprojects.kpok2.service.navigation.AccountCredentials;
 import com.myprojects.kpok2.service.navigation.NavigationSession;
@@ -47,6 +48,7 @@ class TestParsingRunnerTest {
         assertEquals(1, result.duplicateQuestions());
         verify(fixture.statistics).registerAccountActivity("student", 1);
         verify(fixture.statistics).addSessionInfo("student", 1, 1);
+        verify(fixture.assetFetchService).prepareAssets(any(), eq(fixture.driver));
     }
 
     @Test
@@ -65,6 +67,7 @@ class TestParsingRunnerTest {
         NavigationSessionFactory sessionFactory = mock(NavigationSessionFactory.class);
         TestPageNavigator pageNavigator = mock(TestPageNavigator.class);
         TestQuestionParser questionParser = mock(TestQuestionParser.class);
+        QuestionAssetFetchService assetFetchService = mock(QuestionAssetFetchService.class);
         TestQuestionService questionService = mock(TestQuestionService.class);
         TestParsingStatistics statistics = mock(TestParsingStatistics.class);
         DebugProperties debugProperties = new DebugProperties();
@@ -96,11 +99,12 @@ class TestParsingRunnerTest {
                 sessionFactory,
                 pageNavigator,
                 questionParser,
+                assetFetchService,
                 questionService,
                 debugProperties,
                 statistics,
                 mock(QuizCatalogCache.class));
-        return new Fixture(runner, session, statistics);
+        return new Fixture(runner, session, driver, statistics, assetFetchService);
     }
 
     private String reviewHtml(int questionCount) {
@@ -116,6 +120,8 @@ class TestParsingRunnerTest {
     private record Fixture(
             TestParsingRunner runner,
             NavigationSession session,
-            TestParsingStatistics statistics) {
+            WebDriver driver,
+            TestParsingStatistics statistics,
+            QuestionAssetFetchService assetFetchService) {
     }
 }

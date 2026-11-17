@@ -21,6 +21,14 @@ import java.util.TimeZone;
 })
 public class Kpok2Application extends Application {
 
+    static {
+        // Apply this whenever Spring loads the application class, including
+        // integration tests that do not enter main().
+        if ("Europe/Kiev".equals(TimeZone.getDefault().getID())) {
+            TimeZone.setDefault(TimeZone.getTimeZone("Europe/Kyiv"));
+        }
+    }
+
     private ConfigurableApplicationContext springContext;
 
     @Override
@@ -53,11 +61,6 @@ public class Kpok2Application extends Application {
     }
 
     public static void main(String[] args) {
-        // PostgreSQL 18 no longer accepts the legacy IANA identifier used by
-        // some Windows/JDK installations. Normalize it before JDBC starts.
-        if ("Europe/Kiev".equals(TimeZone.getDefault().getID())) {
-            TimeZone.setDefault(TimeZone.getTimeZone("Europe/Kyiv"));
-        }
         launch(args);
     }
 }

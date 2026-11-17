@@ -1,6 +1,7 @@
 package com.myprojects.kpok2.service.parser;
 
 import com.myprojects.kpok2.model.QuestionType;
+import com.myprojects.kpok2.model.QuestionContentLocation;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import org.jsoup.Jsoup;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestQuestionParserTest {
 
@@ -58,6 +61,7 @@ class TestQuestionParserTest {
 
         assertEquals(QuestionType.MULTIPLE_CHOICE, question.getQuestionType());
         assertEquals(List.of("b. Beta", "c. Gamma"), question.getCorrectAnswers());
+        assertEquals(List.of(1, 2), question.getCorrectAnswerIndices());
         assertEquals("b. Beta | c. Gamma", question.getCorrectAnswer());
     }
 
@@ -113,6 +117,44 @@ class TestQuestionParserTest {
     @Test
     void ordinaryQuestionHasNoContext() throws IOException {
         assertNull(parseOne("review-question-en-single.html").getContextText());
+    }
+
+    @Test
+    void preservesSanitizedRichContentAndImagePlacements() throws IOException {
+        TestQuestionParser parser = new TestQuestionParser(new TestNormalizer());
+        var document = Jsoup.parse(
+                fixture("review-question-rich-content.html"),
+                "https://moodle.example/mod/quiz/review.php?attempt=1");
+
+        var questions = parser.parseQuestions(
+                document,
+                "https://moodle.example/mod/quiz/view.php?id=10",
+                10L);
+
+        assertEquals(1, questions.size());
+        ParsedTestQuestionDto question = questions.get(0);
+        assertTrue(question.getContextHtml().contains("<strong>Clinical case</strong>"));
+        assertTrue(question.getContextHtml().contains("<table>"));
+        assertTrue(question.getQuestionHtml().contains("class=\"math-tex\""));
+        assertTrue(question.getQuestionHtml().contains("data-tex=\"x^2 + y^2\""));
+        assertTrue(question.getQuestionHtml().contains("<svg"));
+        assertFalse(question.getQuestionHtml().contains("<script"));
+        assertFalse(question.getQuestionHtml().contains("onload"));
+        assertFalse(question.getContextHtml().contains("onerror"));
+        assertEquals(2, question.getAnswerHtml().size());
+        assertFalse(question.getAnswerHtml().get(1).contains("<input"));
+        assertEquals("b. Two Answer diagram", question.getAnswers().get(1));
+        assertEquals(3, question.getAssets().size());
+        assertEquals(
+                List.of(
+                        QuestionContentLocation.CONTEXT,
+                        QuestionContentLocation.QUESTION,
+                        QuestionContentLocation.ANSWER),
+                question.getAssets().stream()
+                        .map(asset -> asset.getContentLocation())
+                        .toList());
+        assertEquals(1, question.getAssets().get(2).getAnswerIndex());
+        assertEquals(List.of(1), question.getCorrectAnswerIndices());
     }
 
     private ParsedTestQuestionDto parseOne(String fixtureName) throws IOException {

@@ -1,13 +1,20 @@
 package com.myprojects.kpok2.service;
 
 import com.myprojects.kpok2.model.AnswerKey;
+import com.myprojects.kpok2.model.AssetFetchStatus;
+import com.myprojects.kpok2.model.QuestionAsset;
 import com.myprojects.kpok2.model.QuestionObservation;
 import com.myprojects.kpok2.model.QuestionRevision;
+import com.myprojects.kpok2.model.QuestionRevisionAsset;
 import com.myprojects.kpok2.model.TestQuestion;
+import com.myprojects.kpok2.model.dto.ParsedQuestionAssetDto;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
+import com.myprojects.kpok2.model.dto.QuestionAssetRecordDto;
 import com.myprojects.kpok2.model.dto.QuestionRecordDto;
 import com.myprojects.kpok2.repository.AnswerKeyRepository;
+import com.myprojects.kpok2.repository.QuestionAssetRepository;
 import com.myprojects.kpok2.repository.QuestionObservationRepository;
+import com.myprojects.kpok2.repository.QuestionRevisionAssetRepository;
 import com.myprojects.kpok2.repository.QuestionRevisionRepository;
 import com.myprojects.kpok2.service.mapper.TestQuestionMapperUtils;
 import com.myprojects.kpok2.util.JsonConverter;
@@ -35,6 +42,8 @@ public class QuestionVersionService {
     private final QuestionRevisionRepository revisionRepository;
     private final AnswerKeyRepository answerKeyRepository;
     private final QuestionObservationRepository observationRepository;
+    private final QuestionAssetRepository assetRepository;
+    private final QuestionRevisionAssetRepository revisionAssetRepository;
     private final JsonConverter jsonConverter;
 
     @Transactional
@@ -44,7 +53,8 @@ public class QuestionVersionService {
         String revisionHash = TestQuestionMapperUtils.generateRevisionHash(
                 question.getQuestionHash(),
                 parsed.getNormalizedAnswers(),
-                parsed.getQuestionType());
+                parsed.getQuestionType(),
+                parsed.getRevisionContentFingerprint());
 
         Optional<QuestionRevision> existingRevision = revisionRepository
                 .findByQuestionIdAndRevisionHash(question.getId(), revisionHash);
@@ -55,18 +65,25 @@ public class QuestionVersionService {
                         .revisionHash(revisionHash)
                         .contextText(parsed.getContextText())
                         .questionText(parsed.getQuestionText())
+                        .contextHtml(parsed.getContextHtml())
+                        .questionHtml(parsed.getQuestionHtml())
                         .possibleAnswersJson(TestQuestionMapperUtils.answersToJson(
                                 parsed.getAnswers()))
                         .normalizedAnswersJson(TestQuestionMapperUtils.answersToJson(
                                 parsed.getNormalizedAnswers()))
+                        .answerHtmlJson(TestQuestionMapperUtils.answersToJson(
+                                parsed.getAnswerHtml()))
                         .questionType(parsed.getQuestionType())
                         .firstSeenAt(observedAt)
                         .lastSeenAt(observedAt)
                         .build()));
         if (!newRevision) {
             revision.setLastSeenAt(observedAt);
+            updateRichContent(revision, parsed);
             revisionRepository.save(revision);
         }
+
+        persistAssets(revision, parsed.getAssets(), observedAt);
 
         String keyHash = TestQuestionMapperUtils.generateAnswerKeyHash(
                 parsed.getNormalizedCorrectAnswers());
@@ -114,12 +131,24 @@ public class QuestionVersionService {
                 question.getId(),
                 result.revision().getId(),
                 result.answerKey().getId(),
-                parsed.getContextText(),
-                parsed.getQuestionText(),
-                parsed.getAnswers(),
-                parsed.getCorrectAnswers(),
-                parsed.getQuestionType(),
-                result.answerKeyConflict());
+                result.revision().getContextText(),
+                result.revision().getQuestionText(),
+                jsonConverter.getAnswersFromJson(
+                        result.revision().getPossibleAnswersJson()),
+                jsonConverter.getAnswersFromJson(
+                        result.answerKey().getCorrectAnswersJson()),
+                result.revision().getQuestionType(),
+                result.answerKeyConflict(),
+                result.revision().getContextHtml(),
+                result.revision().getQuestionHtml(),
+                jsonConverter.getAnswersFromJson(
+                        result.revision().getAnswerHtmlJson()),
+                revisionAssetRepository
+                        .findAllByRevisionIdOrderByContentLocationAscAnswerIndexAscSequenceIndexAsc(
+                                result.revision().getId())
+                        .stream()
+                        .map(this::toAssetRecord)
+                        .toList());
     }
 
     @Transactional(readOnly = true)
@@ -156,6 +185,14 @@ public class QuestionVersionService {
                         key -> key.getRevision().getId(),
                         LinkedHashMap::new,
                         Collectors.toList()));
+        Map<Long, List<QuestionRevisionAsset>> assetsByRevision = revisionAssetRepository
+                .findAllByRevisionIdInOrderByRevisionIdAscContentLocationAscAnswerIndexAscSequenceIndexAsc(
+                        revisionIds)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        asset -> asset.getRevision().getId(),
+                        LinkedHashMap::new,
+                        Collectors.toList()));
 
         return revisions.stream()
                 .flatMap(revision -> {
@@ -173,9 +210,132 @@ public class QuestionVersionService {
                             jsonConverter.getAnswersFromJson(
                                     key.getCorrectAnswersJson()),
                             revision.getQuestionType(),
-                            conflict));
+                            conflict,
+                            revision.getContextHtml(),
+                            revision.getQuestionHtml(),
+                            jsonConverter.getAnswersFromJson(
+                                    revision.getAnswerHtmlJson()),
+                            assetsByRevision.getOrDefault(revision.getId(), List.of())
+                                    .stream()
+                                    .map(this::toAssetRecord)
+                                    .toList()));
                 })
                 .toList();
+    }
+
+    private void updateRichContent(
+            QuestionRevision revision, ParsedTestQuestionDto parsed) {
+        if (!isBlank(parsed.getContextHtml())) {
+            revision.setContextHtml(parsed.getContextHtml());
+        }
+        if (!isBlank(parsed.getQuestionHtml())) {
+            revision.setQuestionHtml(parsed.getQuestionHtml());
+        }
+        if (parsed.getAnswerHtml() != null && !parsed.getAnswerHtml().isEmpty()) {
+            revision.setAnswerHtmlJson(TestQuestionMapperUtils.answersToJson(
+                    parsed.getAnswerHtml()));
+        }
+    }
+
+    private void persistAssets(
+            QuestionRevision revision,
+            List<ParsedQuestionAssetDto> parsedAssets,
+            LocalDateTime observedAt) {
+        if (parsedAssets == null || parsedAssets.isEmpty()) {
+            return;
+        }
+
+        for (ParsedQuestionAssetDto parsedAsset : parsedAssets) {
+            QuestionAsset storedAsset = resolveAsset(parsedAsset, observedAt);
+            AssetFetchStatus status = parsedAsset.getFetchStatus() == null
+                    ? AssetFetchStatus.FAILED
+                    : parsedAsset.getFetchStatus();
+            String failureReason = parsedAsset.getFailureReason();
+            if (status == AssetFetchStatus.STORED && storedAsset == null) {
+                status = AssetFetchStatus.FAILED;
+                failureReason = "Image content was unavailable for storage";
+            }
+
+            String referenceKey = referenceKey(parsedAsset);
+            AssetFetchStatus finalStatus = status;
+            String finalFailureReason = failureReason;
+            QuestionAsset finalStoredAsset = storedAsset;
+            revisionAssetRepository
+                    .findByRevisionIdAndReferenceKey(revision.getId(), referenceKey)
+                    .ifPresentOrElse(existing -> {
+                        if (finalStoredAsset != null) {
+                            existing.setAsset(finalStoredAsset);
+                        }
+                        existing.setSourceUrl(safe(parsedAsset.getSourceUrl()));
+                        existing.setAltText(safe(parsedAsset.getAltText()));
+                        existing.setFetchStatus(finalStatus);
+                        existing.setFailureReason(finalFailureReason);
+                        existing.setLastSeenAt(observedAt);
+                        revisionAssetRepository.save(existing);
+                    }, () -> revisionAssetRepository.save(
+                            QuestionRevisionAsset.builder()
+                                    .revision(revision)
+                                    .asset(finalStoredAsset)
+                                    .referenceKey(referenceKey)
+                                    .contentLocation(parsedAsset.getContentLocation())
+                                    .answerIndex(parsedAsset.getAnswerIndex())
+                                    .sequenceIndex(parsedAsset.getSequenceIndex())
+                                    .sourceUrl(safe(parsedAsset.getSourceUrl()))
+                                    .altText(safe(parsedAsset.getAltText()))
+                                    .fetchStatus(finalStatus)
+                                    .failureReason(finalFailureReason)
+                                    .firstSeenAt(observedAt)
+                                    .lastSeenAt(observedAt)
+                                    .build()));
+        }
+    }
+
+    private QuestionAsset resolveAsset(
+            ParsedQuestionAssetDto parsedAsset, LocalDateTime observedAt) {
+        if (parsedAsset.getFetchStatus() != AssetFetchStatus.STORED
+                || isBlank(parsedAsset.getContentHash())) {
+            return null;
+        }
+        Optional<QuestionAsset> existing = assetRepository.findByContentHash(
+                parsedAsset.getContentHash());
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        if (parsedAsset.getContent() == null || parsedAsset.getContent().length == 0) {
+            return null;
+        }
+        return assetRepository.save(QuestionAsset.builder()
+                .contentHash(parsedAsset.getContentHash())
+                .mediaType(safe(parsedAsset.getMediaType()))
+                .originalFileName(safe(parsedAsset.getOriginalFileName()))
+                .contentLength(parsedAsset.getContent().length)
+                .content(parsedAsset.getContent())
+                .createdAt(observedAt)
+                .build());
+    }
+
+    private QuestionAssetRecordDto toAssetRecord(QuestionRevisionAsset reference) {
+        QuestionAsset asset = reference.getAsset();
+        return new QuestionAssetRecordDto(
+                reference.getId(),
+                asset == null ? null : asset.getId(),
+                asset == null ? null : asset.getContentHash(),
+                asset == null ? null : asset.getMediaType(),
+                asset == null ? null : asset.getOriginalFileName(),
+                asset == null ? 0 : asset.getContentLength(),
+                reference.getContentLocation(),
+                reference.getAnswerIndex(),
+                reference.getSequenceIndex(),
+                reference.getSourceUrl(),
+                reference.getAltText(),
+                reference.getFetchStatus(),
+                reference.getFailureReason(),
+                asset == null ? null : "/api/assets/" + asset.getId());
+    }
+
+    private String referenceKey(ParsedQuestionAssetDto asset) {
+        return asset.getContentLocation() + ":"
+                + asset.getAnswerIndex() + ":" + asset.getSequenceIndex();
     }
 
     private void recordObservation(
@@ -227,6 +387,10 @@ public class QuestionVersionService {
 
     private static String safe(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     public record VersioningResult(

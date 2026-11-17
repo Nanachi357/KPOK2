@@ -126,11 +126,25 @@ public class TestQuestionMapperUtils {
     /** Stable identity of the question wording, independent of options and keys. */
     public static String generateCanonicalHash(
             String normalizedContext, String normalizedText) {
+        return generateCanonicalHash(normalizedContext, normalizedText, null);
+    }
+
+    /**
+     * Stable identity of question wording plus meaningful non-text content.
+     * Text-only questions retain their v4 hash.
+     */
+    public static String generateCanonicalHash(
+            String normalizedContext,
+            String normalizedText,
+            String contentFingerprint) {
         if (normalizedText == null) {
             throw new IllegalArgumentException("Cannot generate canonical hash from null text");
         }
         String context = normalizedContext == null ? "" : normalizedContext;
-        return md5(context + "|" + normalizedText, true);
+        String base = context + "|" + normalizedText;
+        return md5(contentFingerprint == null || contentFingerprint.isBlank()
+                ? base
+                : base + "|content:" + contentFingerprint, true);
     }
 
     /** Identity of an option-set revision, independent of display order. */
@@ -138,13 +152,26 @@ public class TestQuestionMapperUtils {
             String canonicalHash,
             List<String> normalizedAnswers,
             QuestionType questionType) {
+        return generateRevisionHash(
+                canonicalHash, normalizedAnswers, questionType, null);
+    }
+
+    /** Option-set identity enriched with meaningful non-text answer content. */
+    public static String generateRevisionHash(
+            String canonicalHash,
+            List<String> normalizedAnswers,
+            QuestionType questionType,
+            String contentFingerprint) {
         if (canonicalHash == null || normalizedAnswers == null || questionType == null) {
             throw new IllegalArgumentException("Cannot generate revision hash from null values");
         }
         List<String> sortedAnswers = new ArrayList<>(normalizedAnswers);
         Collections.sort(sortedAnswers);
-        return md5(canonicalHash + "|" + questionType + "|"
-                + String.join("|", sortedAnswers), true);
+        String base = canonicalHash + "|" + questionType + "|"
+                + String.join("|", sortedAnswers);
+        return md5(contentFingerprint == null || contentFingerprint.isBlank()
+                ? base
+                : base + "|content:" + contentFingerprint, true);
     }
 
     /** Identity of a correct-answer set, independent of display order. */

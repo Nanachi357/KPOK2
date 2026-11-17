@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class TestQuestionMapperTest {
 
     @Test
-    void mapsV4MetadataContextAndAnswerLists() {
+    void mapsV5MetadataContextAndAnswerLists() {
         ParsedTestQuestionDto dto = ParsedTestQuestionDto.builder()
                 .questionText("Question")
                 .normalizedText("question")
@@ -23,7 +23,7 @@ class TestQuestionMapperTest {
                 .normalizedCorrectAnswers(List.of("two"))
                 .correctAnswer("b. Two")
                 .normalizedCorrectAnswer("two")
-                .normalizationVersion(4)
+                .normalizationVersion(5)
                 .questionType(QuestionType.SINGLE_CHOICE)
                 .sourceQuizId(173L)
                 .sourceUrl("https://test.testcentr.org.ua/mod/quiz/view.php?id=173")

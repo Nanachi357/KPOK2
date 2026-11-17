@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<body>
+<main id="page-content">
+    <div class="que description" id="question-context">
+        <div class="qtext">
+            <p><strong>Clinical case</strong> with a <em>formatted</em> table:</p>
+            <table>
+                <thead><tr><th scope="col">Marker</th><th scope="col">Value</th></tr></thead>
+                <tbody><tr><td>Na</td><td>140</td></tr></tbody>
+            </table>
+            <img
+                    src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+                    alt="Reference diagram"
+                    onerror="alert('bad')">
+        </div>
+    </div>
+
+    <div class="que multichoice" id="question-1">
+        <div class="qtext">
+            <p>Which expression equals <sup>2</sup>?</p>
+            <script type="math/tex">x^2 + y^2</script>
+            <svg viewBox="0 0 10 10" aria-label="Vector diagram">
+                <path d="M0 0 L10 10" stroke="black" onload="alert('bad')"></path>
+            </svg>
+            <img
+                    src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+                    alt="Question diagram">
+            <script>alert('must be removed')</script>
+        </div>
+        <div class="answer">
+            <div class="r0">
+                <input type="radio" name="answer">
+                <span class="answernumber">a.</span> One
+            </div>
+            <div class="r1 correct">
+                <input type="radio" name="answer" checked>
+                <span class="answernumber">b.</span> Two
+                <img
+                        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+                        alt="Answer diagram">
+            </div>
+        </div>
+        <div class="rightanswer">Correct answer: b. Two</div>
+    </div>
+</main>
+</body>
+</html>

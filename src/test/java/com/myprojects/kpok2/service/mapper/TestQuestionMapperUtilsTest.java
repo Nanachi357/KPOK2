@@ -60,6 +60,22 @@ class TestQuestionMapperUtilsTest {
     }
 
     @Test
+    void richContentChangesCanonicalIdentityWithoutChangingTextOnlyIdentity() {
+        String textOnly = TestQuestionMapperUtils.generateCanonicalHash(
+                "case", "question");
+        String blankFingerprint = TestQuestionMapperUtils.generateCanonicalHash(
+                "case", "question", "");
+        String firstImage = TestQuestionMapperUtils.generateCanonicalHash(
+                "case", "question", "image-one");
+        String secondImage = TestQuestionMapperUtils.generateCanonicalHash(
+                "case", "question", "image-two");
+
+        assertEquals(textOnly, blankFingerprint);
+        assertNotEquals(textOnly, firstImage);
+        assertNotEquals(firstImage, secondImage);
+    }
+
+    @Test
     void revisionIdentityIgnoresOptionOrderButDetectsChangedOptions() {
         String first = TestQuestionMapperUtils.generateRevisionHash(
                 "canonical",
@@ -75,6 +91,22 @@ class TestQuestionMapperUtilsTest {
                 QuestionType.SINGLE_CHOICE);
 
         assertEquals(first, reordered);
+        assertNotEquals(first, changed);
+    }
+
+    @Test
+    void richAnswerContentChangesRevisionIdentity() {
+        String first = TestQuestionMapperUtils.generateRevisionHash(
+                "canonical",
+                List.of("alpha", "beta"),
+                QuestionType.SINGLE_CHOICE,
+                "answer-image-one");
+        String changed = TestQuestionMapperUtils.generateRevisionHash(
+                "canonical",
+                List.of("beta", "alpha"),
+                QuestionType.SINGLE_CHOICE,
+                "answer-image-two");
+
         assertNotEquals(first, changed);
     }
 

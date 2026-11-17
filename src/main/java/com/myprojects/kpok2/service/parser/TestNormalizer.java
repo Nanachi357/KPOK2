@@ -13,7 +13,7 @@ import java.util.Locale;
 @Component
 public class TestNormalizer {
 
-    public static final int CURRENT_VERSION = 4;
+    public static final int CURRENT_VERSION = 5;
 
     /**
      * Normalizes text for comparison

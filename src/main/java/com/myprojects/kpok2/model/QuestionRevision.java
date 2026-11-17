@@ -53,6 +53,12 @@ public class QuestionRevision {
     @Column(name = "question_text", nullable = false, columnDefinition = "TEXT")
     private String questionText;
 
+    @Column(name = "context_html", columnDefinition = "TEXT")
+    private String contextHtml;
+
+    @Column(name = "question_html", columnDefinition = "TEXT")
+    private String questionHtml;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "possible_answers_json", nullable = false, columnDefinition = "jsonb")
     private String possibleAnswersJson;
@@ -60,6 +66,10 @@ public class QuestionRevision {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "normalized_answers_json", nullable = false, columnDefinition = "jsonb")
     private String normalizedAnswersJson;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "answer_html_json", columnDefinition = "jsonb")
+    private String answerHtmlJson;
 
     @Column(name = "question_type", nullable = false, length = 32)
     @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)

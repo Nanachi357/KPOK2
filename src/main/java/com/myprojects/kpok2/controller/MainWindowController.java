@@ -120,6 +120,7 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
                              .map(answer -> "  " + answer)
                              .collect(Collectors.joining("\n")) + "\n" +
                      "Correct Answer: " + question.correctAnswerText() + "\n" +
+                     formatAssets(question) +
                      (question.answerKeyConflict() ? "Answer key conflict: yes\n" : "") +
                      "---\n");
     }
@@ -632,6 +633,8 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
                                    .collect(Collectors.joining("\n")))
                            .append("\n")
                            .append("Correct Answer: ").append(question.correctAnswerText())
+                           .append("\n")
+                           .append(formatAssets(question).stripTrailing())
                            .append(question.answerKeyConflict()
                                    ? "\nAnswer key conflict: yes"
                                    : "")
@@ -652,5 +655,25 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
         return question.contextText() == null || question.contextText().isBlank()
                 ? ""
                 : "Context:\n" + question.contextText() + "\n\n";
+    }
+
+    private String formatAssets(QuestionRecordDto question) {
+        if (question.assets().isEmpty()) {
+            return "";
+        }
+        return "Images:\n" + question.assets().stream()
+                .map(asset -> "  "
+                        + asset.contentLocation().name().toLowerCase(Locale.ROOT)
+                        + (asset.answerIndex() >= 0
+                                ? "[" + asset.answerIndex() + "]"
+                                : "")
+                        + ": "
+                        + (asset.originalFileName() == null
+                                ? asset.fetchStatus().name().toLowerCase(Locale.ROOT)
+                                : asset.originalFileName())
+                        + (asset.altText() == null || asset.altText().isBlank()
+                                ? ""
+                                : " — " + asset.altText()))
+                .collect(Collectors.joining("\n")) + "\n";
     }
 }

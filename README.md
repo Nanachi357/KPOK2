@@ -35,6 +35,8 @@ This repository contains the application source code only; it does not publish a
 - `QuestionRevision` - one normalized set of answer options for a canonical question
 - `AnswerKey` - one observed correct-answer set for a revision
 - `QuestionObservation` - link to the quiz and attempt where a revision/key was seen
+- `QuestionAsset` - image binary deduplicated globally by SHA-256
+- `QuestionRevisionAsset` - image placement and download status within a revision
 - `ParsedTestQuestionDto` - DTO for transferring question data between components
 - `QuestionRecordDto` - flattened revision/key representation used by the UI and API
 - `TestParsingResultDto` - DTO for parsing results
@@ -74,6 +76,8 @@ This repository contains the application source code only; it does not publish a
    - Treats Moodle description/information blocks as shared context rather than questions
    - Attaches each context passage to the questions that follow it
    - Extracts one or more correct answers without relying on a localized feedback prefix
+   - Preserves sanitized formatted HTML, tables, MathML/TeX formulas, inline SVG, and image placements
+   - Downloads Moodle images with the active authenticated session and deduplicates identical binaries
    - Detects the language from the actual question content, using catalog metadata only as a hint
    - Applies Unicode-aware normalization to determine uniqueness across languages
    - Collects statistics about processed and newly identified items
@@ -87,6 +91,8 @@ This repository contains the application source code only; it does not publish a
    - An iteration succeeds only when every discovered review question was parsed
    - The attempt summary reports pages, parsed questions, new questions, duplicates, and rejected questions
    - Context, question type, language, quiz ID, source URL, normalization version, and the full correct-answer list are retained
+   - Rich context/question/answer HTML is stored separately from plain searchable text
+   - Stored images are content-addressed by SHA-256; failed downloads remain visible as placement metadata for later retry
    - Every distinct quiz/language origin is stored separately, so one canonical question can be linked to multiple catalog entries without duplication
    - Existing source fields are backfilled into the normalized origin table automatically on upgrade
    - Each collected Moodle attempt has an idempotent history row with completeness and question-count metrics; repeated verification preserves the initial new-question count
@@ -163,6 +169,7 @@ mvn spring-boot:run
 - `GET /api/parse/results` - Get the results of the last parsing
 - `GET /api/questions` - Get all saved questions
 - `GET /api/questions/search?query={searchText}` - Search questions by text
+- `GET /api/assets/{id}` - Retrieve a stored question image (the question response maps content hashes to these URLs)
 
 ### Navigation API 
 - `POST /api/navigation/start` - Start the navigation process
@@ -170,7 +177,6 @@ mvn spring-boot:run
 - `GET /api/navigation/status` - Get the current navigation system status
 
 ## Development Plans
-- Adding support for images in questions
 - Adding filtered JSON export for revisions, origins, and attempts
 - Adding collection limits and convergence-based stopping
 - Optimizing parsing performance

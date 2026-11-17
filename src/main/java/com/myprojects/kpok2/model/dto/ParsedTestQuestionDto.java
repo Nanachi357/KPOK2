@@ -12,10 +12,17 @@ public class ParsedTestQuestionDto {
     private String normalizedText;
     private String contextText;
     private String normalizedContext;
+    private String contextHtml;
+    private String questionHtml;
     private List<String> answers;
+    private List<String> answerHtml;
+    private List<ParsedQuestionAssetDto> assets;
+    private String canonicalContentFingerprint;
+    private String revisionContentFingerprint;
     private List<String> legacyAnswers;
     private List<String> normalizedAnswers;
     private List<String> correctAnswers;
+    private List<Integer> correctAnswerIndices;
     private List<String> normalizedCorrectAnswers;
     private String correctAnswer;
     private String normalizedCorrectAnswer;

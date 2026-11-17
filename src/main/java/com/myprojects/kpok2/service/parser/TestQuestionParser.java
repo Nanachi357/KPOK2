@@ -31,6 +31,8 @@ public class TestQuestionParser {
     private static final String LEGACY_UKRAINIAN_CORRECT_ANSWER_PREFIX = "Правильна відповідь: ";
 
     private final TestNormalizer normalizer;
+    private final RichQuestionContentExtractor richContentExtractor =
+            new RichQuestionContentExtractor();
 
     /**
      * Parse test questions from the current page using WebDriver
@@ -43,7 +45,7 @@ public class TestQuestionParser {
             WebDriver driver, String url, QuizTarget quizTarget) {
         try {
             String pageSource = driver.getPageSource();
-            Document doc = Jsoup.parse(pageSource);
+            Document doc = Jsoup.parse(pageSource, url);
             Long quizId = quizTarget == null ? null : quizTarget.courseModuleId();
             String sourceUrl = quizTarget == null ? url : quizTarget.viewUrl();
             return parseQuestions(doc, sourceUrl, quizId);
@@ -75,14 +77,15 @@ public class TestQuestionParser {
         List<ParsedTestQuestionDto> questions = new ArrayList<>();
         Elements pageElements = doc.select(TestParserConstants.QUESTION_SELECTOR);
         String documentLanguage = documentLanguage(doc);
-        String contextText = null;
+        String contentBaseUrl = doc.baseUri().isBlank() ? sourceUrl : doc.baseUri();
+        Element contextElement = null;
 
         log.info("Found {} question containers and {} context blocks",
                 countQuestionContainers(doc), countContextBlocks(doc));
 
         for (Element questionElement : pageElements) {
             if (isContextBlock(questionElement)) {
-                contextText = extractContextText(questionElement);
+                contextElement = questionElement;
                 continue;
             }
             try {
@@ -90,9 +93,10 @@ public class TestQuestionParser {
                         questionElement,
                         sourceUrl,
                         sourceQuizId,
-                        contextText,
+                        contextElement,
                         documentLanguage,
-                        languageHint);
+                        languageHint,
+                        contentBaseUrl);
                 if (question != null) {
                     questions.add(question);
                 }
@@ -129,23 +133,32 @@ public class TestQuestionParser {
             Element questionElement,
             String sourceUrl,
             Long sourceQuizId,
-            String contextText,
+            Element contextElement,
             String documentLanguage,
-            String languageHint) {
+            String languageHint,
+            String contentBaseUrl) {
         try {
             Element questionTextElement = questionElement.selectFirst("div.qtext");
             if (questionTextElement == null) {
                 log.warn("Question text not found in container");
                 return null;
             }
-            String questionText = questionTextElement.text().trim();
+            String questionText = textWithImageAlternatives(
+                    questionTextElement, "[Image question]");
+            String contextText = extractContextText(contextElement);
 
             QuestionType questionType = detectQuestionType(questionElement);
-            List<AnswerOption> options = extractAnswerOptions(questionElement);
+            List<Element> answerElements = questionElement
+                    .select("div.answer div.r0, div.answer div.r1");
+            RichQuestionContentExtractor.RichQuestionContent richContent =
+                    richContentExtractor.extract(
+                            contextElement,
+                            questionTextElement,
+                            answerElements,
+                            contentBaseUrl);
+            List<AnswerOption> options = extractAnswerOptions(answerElements);
             List<String> answers = options.stream().map(AnswerOption::text).toList();
-            List<String> legacyAnswers = questionElement
-                    .select("div.answer div.r0, div.answer div.r1")
-                    .stream()
+            List<String> legacyAnswers = answerElements.stream()
                     .map(Element::text)
                     .map(String::trim)
                     .filter(text -> !text.isEmpty())
@@ -164,6 +177,8 @@ public class TestQuestionParser {
                     : correctAnswerElement.text().trim();
             List<String> correctAnswers = extractCorrectAnswers(
                     options, feedbackText, questionType);
+            List<Integer> correctAnswerIndices = correctAnswerIndices(
+                    options, correctAnswers);
 
             if (correctAnswers.isEmpty()
                     && !feedbackText.isBlank()
@@ -171,6 +186,7 @@ public class TestQuestionParser {
                 // Unknown Moodle question types may not expose selectable options.
                 // Preserve their feedback instead of discarding the question.
                 correctAnswers = List.of(feedbackText);
+                correctAnswerIndices = List.of();
             }
             if (correctAnswers.isEmpty()) {
                 log.warn("Correct answer not found in container");
@@ -197,10 +213,15 @@ public class TestQuestionParser {
                     .normalizedText(normalizer.normalizeText(questionText))
                     .contextText(contextText)
                     .normalizedContext(normalizer.normalizeText(contextText))
+                    .contextHtml(richContent.contextHtml())
+                    .questionHtml(richContent.questionHtml())
                     .answers(answers)
+                    .answerHtml(richContent.answerHtml())
+                    .assets(richContent.assets())
                     .legacyAnswers(legacyAnswers)
                     .normalizedAnswers(normalizedAnswers)
                     .correctAnswers(correctAnswers)
+                    .correctAnswerIndices(correctAnswerIndices)
                     .normalizedCorrectAnswers(normalizedCorrectAnswers)
                     .correctAnswer(correctAnswer)
                     .normalizedCorrectAnswer(normalizedCorrectAnswer)
@@ -219,16 +240,18 @@ public class TestQuestionParser {
         }
     }
 
-    private List<AnswerOption> extractAnswerOptions(Element questionElement) {
+    private List<AnswerOption> extractAnswerOptions(List<Element> answerElements) {
         List<AnswerOption> options = new ArrayList<>();
-        for (Element option : questionElement.select("div.answer div.r0, div.answer div.r1")) {
+        for (int sourceIndex = 0; sourceIndex < answerElements.size(); sourceIndex++) {
+            Element option = answerElements.get(sourceIndex);
             Element clean = option.clone();
             clean.select("input, i.icon, .specificfeedback, .feedback, .validationerror").remove();
-            String text = clean.text().trim();
+            String text = textWithImageAlternatives(
+                    clean, "[Image option " + (sourceIndex + 1) + "]");
             if (!text.isEmpty()) {
                 boolean structurallyCorrect = option.hasClass("correct")
                         || !option.select(".correct, i.text-success, i.fa-check").isEmpty();
-                options.add(new AnswerOption(text, structurallyCorrect));
+                options.add(new AnswerOption(text, structurallyCorrect, sourceIndex));
             }
         }
         return options;
@@ -294,6 +317,31 @@ public class TestQuestionParser {
                 .toList();
     }
 
+    private List<Integer> correctAnswerIndices(
+            List<AnswerOption> options, List<String> correctAnswers) {
+        List<Integer> structuralIndices = options.stream()
+                .filter(AnswerOption::structurallyCorrect)
+                .map(AnswerOption::sourceIndex)
+                .toList();
+        if (!structuralIndices.isEmpty()) {
+            return structuralIndices;
+        }
+
+        List<Integer> indices = new ArrayList<>();
+        Set<Integer> used = new LinkedHashSet<>();
+        for (String correctAnswer : correctAnswers) {
+            for (AnswerOption option : options) {
+                if (!used.contains(option.sourceIndex())
+                        && option.text().equals(correctAnswer)) {
+                    indices.add(option.sourceIndex());
+                    used.add(option.sourceIndex());
+                    break;
+                }
+            }
+        }
+        return List.copyOf(indices);
+    }
+
     private QuestionType detectQuestionType(Element questionElement) {
         if (questionElement.hasClass("truefalse")) {
             return QuestionType.TRUE_FALSE;
@@ -319,9 +367,33 @@ public class TestQuestionParser {
     }
 
     private String extractContextText(Element element) {
+        if (element == null) {
+            return null;
+        }
         Element questionText = element.selectFirst(TestParserConstants.QUESTION_TEXT_SELECTOR);
-        String text = (questionText == null ? element : questionText).text().trim();
+        String text = textWithImageAlternatives(
+                questionText == null ? element : questionText,
+                "[Image context]");
         return text.isBlank() ? null : text;
+    }
+
+    private String textWithImageAlternatives(Element element, String fallback) {
+        StringBuilder text = new StringBuilder(element.text().trim());
+        element.select("img[alt]").stream()
+                .map(image -> image.attr("alt").trim())
+                .filter(alt -> !alt.isBlank())
+                .distinct()
+                .filter(alt -> !text.toString().contains(alt))
+                .forEach(alt -> {
+                    if (!text.isEmpty()) {
+                        text.append(' ');
+                    }
+                    text.append(alt);
+                });
+        if (text.isEmpty() && !element.select("img, svg").isEmpty()) {
+            return fallback;
+        }
+        return text.toString().trim();
     }
 
     private String contentLanguage(
@@ -438,7 +510,8 @@ public class TestQuestionParser {
                 || script == Character.UnicodeScript.HANGUL;
     }
 
-    private record AnswerOption(String text, boolean structurallyCorrect) {
+    private record AnswerOption(
+            String text, boolean structurallyCorrect, int sourceIndex) {
     }
     
     /**

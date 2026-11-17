@@ -3,6 +3,7 @@ package com.myprojects.kpok2.service.parser;
 import com.myprojects.kpok2.config.DebugProperties;
 import com.myprojects.kpok2.model.dto.ReviewPageParsingResult;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
+import com.myprojects.kpok2.service.QuestionAssetFetchService;
 import com.myprojects.kpok2.service.TestQuestionService;
 import com.myprojects.kpok2.service.catalog.QuizCatalogCache;
 import com.myprojects.kpok2.service.navigation.NavigationSession;
@@ -27,6 +28,7 @@ public class TestParsingRunner {
     private final NavigationSessionFactory navigationSessionFactory;
     private final TestPageNavigator pageNavigator;
     private final TestQuestionParser questionParser;
+    private final QuestionAssetFetchService questionAssetFetchService;
     private final TestQuestionService testQuestionService;
     private final DebugProperties debugProperties;
     private final TestParsingStatistics parsingStatistics;
@@ -74,6 +76,7 @@ public class TestParsingRunner {
                     session.getQuizTarget().viewUrl(),
                     session.getQuizTarget().courseModuleId(),
                     catalogLanguageHint(session.getQuizTarget().courseModuleId()));
+            questionAssetFetchService.prepareAssets(questions, driver);
             questions.forEach(question -> question.setSourceAttemptId(session.getAttemptId()));
             parsedQuestions = questions.size();
 
