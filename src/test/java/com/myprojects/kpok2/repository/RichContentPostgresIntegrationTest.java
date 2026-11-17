@@ -11,6 +11,7 @@ import com.myprojects.kpok2.model.dto.export.QuestionExportDocument;
 import com.myprojects.kpok2.model.dto.export.QuestionExportFilter;
 import com.myprojects.kpok2.service.QuestionAssetFetchService;
 import com.myprojects.kpok2.service.QuestionExportService;
+import com.myprojects.kpok2.service.QuestionImportService;
 import com.myprojects.kpok2.service.QuestionOriginService;
 import com.myprojects.kpok2.service.QuestionVersionService;
 import com.myprojects.kpok2.service.TestQuestionService;
@@ -167,12 +168,15 @@ class RichContentPostgresIntegrationTest {
         QuestionExportDocument document = exportService.buildExport(
                 QuestionExportFilter.all());
         String json = objectMapper.writeValueAsString(document);
+        var importPreview = new QuestionImportService(objectMapper)
+                .inspect(document);
 
         assertEquals(QuestionExportDocument.CURRENT_SCHEMA_VERSION,
                 document.schemaVersion());
         assertEquals(document.questions().size(),
                 document.summary().canonicalQuestions());
         assertEquals(questionRepository.count(), document.questions().size());
+        assertEquals(document.summary(), importPreview.contents());
         assertTrue(json.contains("\"schemaVersion\":\"kpok2-question-export-v1\""));
         assertTrue(json.contains("\"questions\""));
     }
