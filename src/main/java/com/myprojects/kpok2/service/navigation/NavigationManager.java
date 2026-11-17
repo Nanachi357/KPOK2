@@ -1,112 +1,37 @@
 package com.myprojects.kpok2.service.navigation;
 
-import com.myprojects.kpok2.config.TestCenterProperties;
-import com.myprojects.kpok2.service.AccountConfigurationService;
-import com.myprojects.kpok2.service.parser.ReviewAttemptProcessor;
-import com.myprojects.kpok2.service.parser.TestParsingStatistics;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class NavigationManager {
-    private final TestCenterProperties properties;
-    private final TestCenterNavigator navigator;
-    private final NavigationSessionFactory sessionFactory;
-    private final TestParsingStatistics parsingStatistics;
-    private final AccountConfigurationService accountService;
-    private final ReviewPageResolver reviewPageResolver;
-    private final ReviewAttemptProcessor reviewAttemptProcessor;
-    private final AtomicBoolean isRunning;
-    private CompletableFuture<Void> navigationFuture;
-
-    public NavigationManager(
-            TestCenterProperties properties,
-            TestCenterNavigator navigator,
-            NavigationSessionFactory sessionFactory,
-            TestParsingStatistics parsingStatistics,
-            AccountConfigurationService accountService,
-            ReviewPageResolver reviewPageResolver,
-            ReviewAttemptProcessor reviewAttemptProcessor
-    ) {
-        this.properties = properties;
-        this.navigator = navigator;
-        this.sessionFactory = sessionFactory;
-        this.parsingStatistics = parsingStatistics;
-        this.accountService = accountService;
-        this.reviewPageResolver = reviewPageResolver;
-        this.reviewAttemptProcessor = reviewAttemptProcessor;
-        this.isRunning = new AtomicBoolean(false);
-    }
+    private final NavigationService navigationService;
 
     public boolean startNavigation() {
-        if (isRunning.get()) {
-            log.warn("Navigation is already running");
-            return false;
-        }
-
-        try {
-            NavigationService navigationService = new NavigationService(
-                    properties,
-                    navigator,
-                    sessionFactory,
-                    parsingStatistics,
-                    accountService,
-                    reviewPageResolver,
-                    reviewAttemptProcessor
-            );
-
-            log.info("Starting navigation process...");
-            boolean success = navigationService.startNavigation();
-
-            if (success) {
-                isRunning.set(true);
-                log.info("Navigation process started successfully");
-                
-                // Launch process in a separate thread
-                navigationFuture = CompletableFuture.runAsync(() -> {
-                    try {
-                        while (isRunning.get()) {
-                            Thread.sleep(1000); // Check state every second
-                        }
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                });
-                
-                return true;
-            } else {
-                log.error("Failed to start navigation process");
-                return false;
-            }
-        } catch (Exception e) {
-            log.error("Error starting navigation: {}", e.getMessage(), e);
-            return false;
-        }
+        return navigationService.startNavigation();
     }
 
-    public void stopNavigation() {
-        if (!isRunning.get()) {
-            log.warn("Navigation is not running");
-            return;
-        }
+    public boolean requestStopAfterCurrent() {
+        return navigationService.requestStopAfterCurrent();
+    }
 
-        log.info("Stopping navigation process...");
-        isRunning.set(false);
-        
-        if (navigationFuture != null) {
-            navigationFuture.cancel(true);
-            navigationFuture = null;
-        }
-        
-        // TODO: Add proper browser closure
-        log.info("Navigation process stopped");
+    /** The desktop's default stop action is deliberately graceful. */
+    public boolean stopNavigation() {
+        return requestStopAfterCurrent();
+    }
+
+    public boolean stopNow() {
+        return navigationService.stopNow();
     }
 
     public boolean isRunning() {
-        return isRunning.get();
+        return navigationService.isRunning();
+    }
+
+    public boolean isStopAfterCurrentRequested() {
+        return navigationService.isStopAfterCurrentRequested();
     }
 }

@@ -61,13 +61,21 @@ public class NavigationController {
         log.info("Received request to stop navigation");
         
         try {
-            navigationService.shutdown();
-            return ResponseEntity.ok("Navigation processes stopped");
+            navigationService.stopNow();
+            return ResponseEntity.ok("Immediate navigation stop requested");
         } catch (Exception e) {
             log.error("Error stopping navigation: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body("Error stopping navigation: " + e.getMessage());
         }
+    }
+
+    @PostMapping("/stop-after-current")
+    public ResponseEntity<String> stopAfterCurrentAttempt() {
+        if (navigationService.requestStopAfterCurrent()) {
+            return ResponseEntity.ok("Navigation will stop after current attempts finish");
+        }
+        return ResponseEntity.badRequest().body("Navigation is not running");
     }
     
     /**
@@ -77,7 +85,12 @@ public class NavigationController {
      */
     @GetMapping("/status")
     public ResponseEntity<String> getStatus() {
-        return ResponseEntity.ok("Navigation system is running");
+        if (!navigationService.isRunning()) {
+            return ResponseEntity.ok("stopped");
+        }
+        return ResponseEntity.ok(navigationService.isStopAfterCurrentRequested()
+                ? "stopping-after-current"
+                : "running");
     }
     
     /**
@@ -88,4 +101,4 @@ public class NavigationController {
         log.info("Application shutting down, cleaning up navigation resources");
         navigationService.shutdown();
     }
-} 
+}

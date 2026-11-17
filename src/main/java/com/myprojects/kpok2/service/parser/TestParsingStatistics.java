@@ -116,6 +116,11 @@ public class TestParsingStatistics {
         return totalIterationsNeeded.get();
     }
 
+    /** Reset progress that belongs to one navigation run. */
+    public void resetIterationProgress() {
+        completedIterationsCount.set(0);
+    }
+
     public void updateStats(TestParsingResultDto result) {
         processedCount.incrementAndGet();
         if (result.getStatus() == ParsingStatus.SUCCESS) {

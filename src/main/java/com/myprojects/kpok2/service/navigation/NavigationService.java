@@ -13,12 +13,10 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.openqa.selenium.By;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.time.Duration;
@@ -38,15 +36,16 @@ public class NavigationService {
     private final AccountConfigurationService accountService;
     private final ReviewPageResolver reviewPageResolver;
     private final ReviewAttemptProcessor reviewAttemptProcessor;
+    private final NavigationRunControl runControl;
     
-    private ExecutorService executorService;
-    private final List<Future<?>> runningTasks = new ArrayList<>();
+    private volatile ExecutorService executorService;
+    private volatile CompletableFuture<Void> completionFuture;
     
     /**
      * Start navigation process with the configured number of threads.
      * @return true if navigation has started successfully
      */
-    public boolean startNavigation() {
+    public synchronized boolean startNavigation() {
         int threadCount = accountService.getMaxThreads();
         
         // Validate thread count
@@ -56,7 +55,7 @@ public class NavigationService {
         }
         
         // Check if navigation is already running
-        if (executorService != null && !executorService.isShutdown()) {
+        if (runControl.isRunning()) {
             log.warn("Navigation is already running");
             return false;
         }
@@ -73,6 +72,11 @@ public class NavigationService {
         
         // Set up iteration counting
         int iterationCount = accountService.getIterationCount();
+        if (!runControl.beginRun(iterationCount)) {
+            log.warn("Navigation is already running");
+            return false;
+        }
+        parsingStatistics.resetIterationProgress();
         parsingStatistics.setTotalIterationsNeeded(iterationCount);
         
         // Log session reuse setting
@@ -89,20 +93,73 @@ public class NavigationService {
             log.info("Target iteration count set to: {}", iterationCount);
         }
         
-        // Create thread pool
-        executorService = Executors.newFixedThreadPool(threadCount);
-        
-        // Start tasks for each thread
-        for (int i = 0; i < threadCount; i++) {
-            String threadName = "NavigationThread-" + i;
-            Future<?> future = executorService.submit(new NavigationTask(threadName));
-            runningTasks.add(future);
-            
-            log.info("Started navigation task: {}", threadName);
+        ExecutorService runExecutor = Executors.newFixedThreadPool(threadCount);
+        executorService = runExecutor;
+
+        try {
+            // Each worker performs multiple reserved iterations inside its task.
+            for (int i = 0; i < threadCount; i++) {
+                String threadName = "NavigationThread-" + i;
+                runExecutor.submit(new NavigationTask(threadName));
+                log.info("Started navigation task: {}", threadName);
+            }
+            runExecutor.shutdown();
+            completionFuture = CompletableFuture.runAsync(() -> awaitRunCompletion(runExecutor));
+            return true;
+        } catch (RuntimeException e) {
+            log.error("Failed to start navigation workers", e);
+            runControl.stopNow();
+            runExecutor.shutdownNow();
+            executorService = null;
+            return false;
         }
-        
-        // Check if any tasks have started successfully
-        return !runningTasks.isEmpty();
+    }
+
+    /** Stop creating new attempts and let every in-progress attempt finish. */
+    public boolean requestStopAfterCurrent() {
+        boolean requested = runControl.requestStopAfterCurrent();
+        if (requested) {
+            log.info("Graceful navigation stop requested; waiting for in-progress iterations");
+        }
+        return requested;
+    }
+
+    /** Interrupt workers immediately. Intended for emergency cancellation. */
+    public boolean stopNow() {
+        boolean stopped = runControl.stopNow();
+        ExecutorService currentExecutor = executorService;
+        if (currentExecutor != null) {
+            currentExecutor.shutdownNow();
+        }
+        if (stopped) {
+            log.info("Immediate navigation stop requested");
+        }
+        return stopped;
+    }
+
+    public boolean isRunning() {
+        return runControl.isRunning();
+    }
+
+    public boolean isStopAfterCurrentRequested() {
+        return runControl.isStopAfterCurrentRequested();
+    }
+
+    private void awaitRunCompletion(ExecutorService runExecutor) {
+        try {
+            while (!runExecutor.awaitTermination(1, TimeUnit.DAYS)) {
+                log.debug("Waiting for navigation workers to finish");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            runExecutor.shutdownNow();
+        } finally {
+            runControl.markStopped();
+            if (executorService == runExecutor) {
+                executorService = null;
+            }
+            log.info("All navigation workers have stopped");
+        }
     }
     
     /**
@@ -110,21 +167,18 @@ public class NavigationService {
      */
     public void shutdown() {
         log.info("Shutting down navigation service");
-        
-        if (executorService != null) {
+
+        stopNow();
+        ExecutorService currentExecutor = executorService;
+        if (currentExecutor != null) {
             try {
-                // Try to shutdown gracefully first
-                executorService.shutdown();
-                if (!executorService.awaitTermination(30, TimeUnit.SECONDS)) {
-                    // Force shutdown if tasks don't terminate in time
+                if (!currentExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
                     log.warn("Navigation tasks did not terminate in time, forcing shutdown");
-                    executorService.shutdownNow();
+                    currentExecutor.shutdownNow();
                 }
             } catch (InterruptedException e) {
                 log.error("Interrupted while waiting for navigation tasks to complete", e);
-                // Force shutdown
-                executorService.shutdownNow();
-                // Restore interrupted status
+                currentExecutor.shutdownNow();
                 Thread.currentThread().interrupt();
             }
         }
@@ -135,7 +189,7 @@ public class NavigationService {
     /**
      * Task that handles the navigation process for one account.
      */
-    private class NavigationTask implements Callable<Boolean> {
+    private class NavigationTask implements Runnable {
         private final String threadName;
         
         public NavigationTask(String threadName) {
@@ -143,7 +197,7 @@ public class NavigationService {
         }
         
         @Override
-        public Boolean call() {
+        public void run() {
             Thread.currentThread().setName(threadName);
             log.info("Starting navigation task: {}", threadName);
             
@@ -151,30 +205,28 @@ public class NavigationService {
             boolean reuseSession = accountService.isReuseSession();
             
             try {
-                // Main iteration loop
-                while (!Thread.currentThread().isInterrupted() && parsingStatistics.isMoreIterationsNeeded()) {
-                    // Before starting a new iteration, check again if we should continue
-                    if (!parsingStatistics.isMoreIterationsNeeded()) {
-                        log.info("{}: No more iterations needed, exiting loop", threadName);
-                        break;
-                    }
-                    
-                    // Create a new session only if we don't have one or reuse is disabled
-                    if (session == null) {
-                        try {
-                            session = sessionFactory.createSession();
-                            log.info("{}: Created new navigation session with account: {}",
-                                    threadName, session.getAccount().getUsername());
-                        } catch (Exception e) {
-                            log.error("{}: Failed to create session: {}", threadName, e.getMessage());
-                            // Wait a bit before retrying
-                            Thread.sleep(5000);
-                            continue;
+                // Main iteration loop. A shared reservation keeps parallel workers
+                // from exceeding the configured total.
+                while (!Thread.currentThread().isInterrupted() && runControl.tryReserveIteration()) {
+                    boolean iterationSuccess = false;
+                    try {
+                        // Create a new session only if we don't have one or reuse is disabled
+                        if (session == null) {
+                            try {
+                                session = sessionFactory.createSession();
+                                log.info("{}: Created new navigation session with account: {}",
+                                        threadName, session.getAccount().getUsername());
+                            } catch (Exception e) {
+                                log.error("{}: Failed to create session: {}", threadName, e.getMessage());
+                                Thread.sleep(5000);
+                                continue;
+                            }
                         }
+
+                        iterationSuccess = runOneIteration(session);
+                    } finally {
+                        runControl.finishIteration(iterationSuccess);
                     }
-                    
-                    // Run one iteration of the parsing process
-                    boolean iterationSuccess = runOneIteration(session);
                     
                     if (iterationSuccess) {
                         // Count this as a completed iteration
@@ -187,10 +239,8 @@ public class NavigationService {
                             log.info("{}: Completed iteration {} (unlimited mode)", threadName, completedCount);
                         }
                         
-                        // Check if we've reached the total
-                        if (!parsingStatistics.isMoreIterationsNeeded()) {
-                            log.info("{}: Target iteration count reached, exiting loop", threadName);
-                            break;
+                        if (!runControl.shouldPrepareAnotherIteration()) {
+                            continue;
                         }
                         
                         // If we're not reusing sessions between iterations, close the current one
@@ -300,8 +350,6 @@ public class NavigationService {
                 }
                 log.info("{}: Navigation task completed", threadName);
             }
-            
-            return true;
         }
         
         /**
