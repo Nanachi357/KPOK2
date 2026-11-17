@@ -33,8 +33,8 @@
         </padding>
         <!-- Control Panel -->
         <HBox spacing="10" alignment="CENTER_LEFT">
-            <Button fx:id="startStopButton" text="Start" onAction="#onStartStopClick"/>
-            <Label fx:id="statusLabel" text="Status: Stopped"/>
+            <Button fx:id="startStopButton" text="%navigation.run.start" onAction="#onStartStopClick"/>
+            <Label fx:id="statusLabel" text="%navigation.run.status.stopped"/>
             <Label fx:id="iterationLabel" text="Iterations: 0/0"/>
         </HBox>
 
@@ -71,6 +71,6 @@
         <padding>
             <Insets top="5" right="5" bottom="5" left="5"/>
         </padding>
-        <Label fx:id="statusBarLabel" text="Ready"/>
+        <Label fx:id="statusBarLabel" text="%navigation.run.status.ready"/>
     </HBox>
 </VBox>

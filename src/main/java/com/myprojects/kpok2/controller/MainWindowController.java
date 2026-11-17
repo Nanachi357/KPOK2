@@ -9,6 +9,9 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.stage.FileChooser;
@@ -153,7 +156,10 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
         }
         
         uiUpdateScheduler = Executors.newSingleThreadScheduledExecutor();
-        uiUpdateScheduler.scheduleAtFixedRate(this::updateIterationCount, 1, 1, TimeUnit.SECONDS);
+        uiUpdateScheduler.scheduleAtFixedRate(() -> {
+            updateIterationCount();
+            updateStatus();
+        }, 1, 1, TimeUnit.SECONDS);
     }
     
     private void updateIterationCount() {
@@ -172,20 +178,56 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     @FXML
     public void onStartStopClick() {
         if (navigationManager.isRunning()) {
-            navigationManager.stopNavigation();
+            if (navigationManager.isStopAfterCurrentRequested()) {
+                if (confirmImmediateStop()) {
+                    navigationManager.stopNow();
+                }
+            } else {
+                navigationManager.requestStopAfterCurrent();
+            }
         } else {
             navigationManager.startNavigation();
         }
         updateStatus();
     }
+
+    private boolean confirmImmediateStop() {
+        ButtonType stopNow = new ButtonType(
+                message("navigation.run.stop.now"),
+                ButtonBar.ButtonData.OK_DONE);
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle(message("navigation.run.stop.now.title"));
+        alert.setHeaderText(message("navigation.run.stop.now.header"));
+        alert.setContentText(message("navigation.run.stop.now.warning"));
+        alert.getButtonTypes().setAll(stopNow, ButtonType.CANCEL);
+        if (startStopButton.getScene() != null) {
+            alert.initOwner(startStopButton.getScene().getWindow());
+        }
+        return alert.showAndWait().orElse(ButtonType.CANCEL) == stopNow;
+    }
     
     private void updateStatus() {
         boolean isRunning = navigationManager.isRunning();
+        boolean isStopping = isRunning && navigationManager.isStopAfterCurrentRequested();
         Platform.runLater(() -> {
-            startStopButton.setText(isRunning ? "Stop" : "Start");
-            statusLabel.setText("Status: " + (isRunning ? "Running" : "Stopped"));
-            statusBarLabel.setText(isRunning ? "Navigation in progress..." : "Ready");
+            if (!isRunning) {
+                startStopButton.setText(message("navigation.run.start"));
+                statusLabel.setText(message("navigation.run.status.stopped"));
+                statusBarLabel.setText(message("navigation.run.status.ready"));
+            } else if (isStopping) {
+                startStopButton.setText(message("navigation.run.stop.now"));
+                statusLabel.setText(message("navigation.run.status.stopping"));
+                statusBarLabel.setText(message("navigation.run.status.finishing"));
+            } else {
+                startStopButton.setText(message("navigation.run.stop.after.current"));
+                statusLabel.setText(message("navigation.run.status.running"));
+                statusBarLabel.setText(message("navigation.run.status.collecting"));
+            }
         });
+    }
+
+    private String message(String key) {
+        return messageSource.getMessage(key, null, Locale.getDefault());
     }
     
     @FXML
