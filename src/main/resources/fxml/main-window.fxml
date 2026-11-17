@@ -56,6 +56,7 @@
                     </HBox>
                     <!-- Save Buttons -->
                     <HBox alignment="CENTER_RIGHT" spacing="10">
+                        <Button text="%button.import.json" onAction="#onImportJsonClick"/>
                         <Button text="%button.export.json" onAction="#onExportJsonClick"/>
                         <Button text="%button.export.all" onAction="#onExportAllTestsClick"/>
                         <Button text="%button.save" onAction="#onSaveNewTestsClick"/>

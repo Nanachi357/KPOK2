@@ -109,7 +109,14 @@ This repository contains the application source code only; it does not publish a
    - Keeps image binaries out of JSON; each stored asset is identified by SHA-256 and its `/api/assets/{id}` URL
    - Writes desktop exports in the background through a temporary file and atomically replaces the selected destination
 
-6. **Statistics and Monitoring**
+6. **Safe Data Import**
+   - Validates `kpok2-question-export-v1` documents before any database mutation
+   - Shows a read-only preview with counts and compatibility warnings
+   - Atomically merges canonical questions, revisions, answer keys, origins, observations, and attempt history
+   - Matches stable hashes and source identities so importing the same file repeatedly does not create duplicates
+   - Ignores source database IDs and reports unsupported image metadata separately
+
+7. **Statistics and Monitoring**
    - The system tracks iteration counts, newly added study items, and used accounts
    - Statistics can be viewed through a dedicated UI dialog
    - Parsing sessions are logged with detailed information
@@ -179,6 +186,8 @@ mvn spring-boot:run
 - `GET /api/assets/{id}` - Retrieve a stored question image (the question response maps content hashes to these URLs)
 - `GET /api/exports/questions/options` - List available quiz, language, and question-type filters
 - `GET /api/exports/questions` - Download a versioned JSON export; accepts repeated `quizId`, `language`, and `questionType` parameters plus `query`, `conflictsOnly`, and `includeAttempts`
+- `POST /api/imports/questions/preview` - Validate an export and return a read-only content summary
+- `POST /api/imports/questions` - Validate and atomically merge a versioned export into the local database
 
 ### Navigation API 
 - `POST /api/navigation/start` - Start the navigation process
@@ -186,8 +195,9 @@ mvn spring-boot:run
 - `GET /api/navigation/status` - Get the current navigation system status
 
 ## Development Plans
-- Adding a ZIP package with `manifest.json` and deduplicated image files
-- Adding collection limits and convergence-based stopping
+- Adding portable backup and restore on top of the JSON transfer format
+- Adding warnings, runtime estimates, and graceful stopping for long collection runs
+- Adding a searchable question-library view
 - Optimizing parsing performance
 
 ## UI Features
@@ -198,6 +208,7 @@ The application provides a graphical user interface (JavaFX) with the following 
 - Control buttons for starting/stopping navigation
 - Log display for real-time monitoring
 - Filtered, background JSON export with revision and attempt history
+- Preview-first, background JSON import with an explicit confirmation step
 - Menu options for accessing various functions
 
 ### Account Management

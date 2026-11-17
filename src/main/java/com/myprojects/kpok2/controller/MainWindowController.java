@@ -674,6 +674,29 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
         }
     }
 
+    @FXML
+    public void onImportJsonClick() {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/question-import.fxml"));
+            loader.setControllerFactory(applicationContext::getBean);
+            loader.setResources(ResourceBundle.getBundle("i18n.messages"));
+
+            Parent root = loader.load();
+            Stage stage = new Stage();
+            stage.setTitle("Import Questions from JSON");
+            stage.setScene(new Scene(root));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setResizable(false);
+
+            QuestionImportDialogController controller = loader.getController();
+            controller.setStage(stage);
+            stage.showAndWait();
+        } catch (Exception e) {
+            log.error("Error opening question import dialog", e);
+        }
+    }
+
     private String formatContext(QuestionRecordDto question) {
         return question.contextText() == null || question.contextText().isBlank()
                 ? ""

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.myprojects.kpok2.controller.QuestionImportDialogController"
+      prefHeight="520.0" prefWidth="680.0" spacing="12">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="%import.json.title"
+           style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+    <Label text="%import.json.description" wrapText="true"/>
+
+    <HBox spacing="10">
+        <Button fx:id="browseButton" text="%import.json.browse"
+                onAction="#onBrowseClick"/>
+        <Label fx:id="selectedFileLabel" wrapText="true" HBox.hgrow="ALWAYS"/>
+    </HBox>
+
+    <TextArea fx:id="previewArea" prefRowCount="16" VBox.vgrow="ALWAYS"/>
+    <Label fx:id="statusLabel" wrapText="true"/>
+
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button fx:id="importButton" text="%import.json.button"
+                onAction="#onImportClick"/>
+        <Button fx:id="cancelButton" text="%button.cancel"
+                onAction="#onCancelClick"/>
+    </HBox>
+</VBox>

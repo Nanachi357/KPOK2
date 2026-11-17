@@ -126,7 +126,7 @@ Time Estimates:
   - Changelog display 💫 [S]
 - Data Management ⭐ [L]
   - Question export functionality ✓
-  - Question import system
+  - Question import system ✓
   - Backup/restore capabilities
 - Analytics Dashboard 💫 [XL] (not planned for release)
   - Parser performance metrics
