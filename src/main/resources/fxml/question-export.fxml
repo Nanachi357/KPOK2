@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.myprojects.kpok2.controller.QuestionExportDialogController"
+      prefHeight="430.0" prefWidth="620.0" spacing="14">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="%export.json.title" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+    <Label text="%export.json.description" wrapText="true"/>
+
+    <GridPane hgap="12" vgap="12">
+        <Label text="%export.json.quiz" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+        <ComboBox fx:id="quizComboBox" prefWidth="420"
+                  GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+        <Label text="%export.json.language" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+        <ComboBox fx:id="languageComboBox" prefWidth="220"
+                  GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+        <Label text="%export.json.type" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+        <ComboBox fx:id="questionTypeComboBox" prefWidth="220"
+                  GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+        <Label text="%export.json.search" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+        <TextField fx:id="searchField" promptText="%export.json.search.prompt"
+                   GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+        <CheckBox fx:id="conflictsOnlyCheckBox" text="%export.json.conflicts"
+                  GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+        <CheckBox fx:id="includeAttemptsCheckBox" text="%export.json.attempts"
+                  GridPane.rowIndex="5" GridPane.columnIndex="1"/>
+    </GridPane>
+
+    <Label fx:id="statusLabel" wrapText="true"/>
+
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button fx:id="exportButton" text="%export.json.button"
+                onAction="#onExportClick"/>
+        <Button text="%button.cancel" onAction="#onCancelClick"/>
+    </HBox>
+</VBox>

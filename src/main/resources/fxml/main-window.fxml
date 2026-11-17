@@ -56,6 +56,7 @@
                     </HBox>
                     <!-- Save Buttons -->
                     <HBox alignment="CENTER_RIGHT" spacing="10">
+                        <Button text="%button.export.json" onAction="#onExportJsonClick"/>
                         <Button text="%button.export.all" onAction="#onExportAllTestsClick"/>
                         <Button text="%button.save" onAction="#onSaveNewTestsClick"/>
                     </HBox>
@@ -71,4 +72,4 @@
         </padding>
         <Label fx:id="statusBarLabel" text="Ready"/>
     </HBox>
-</VBox> 
+</VBox>

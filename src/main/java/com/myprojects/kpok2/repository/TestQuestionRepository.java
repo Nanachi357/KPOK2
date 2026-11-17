@@ -12,6 +12,8 @@ import java.util.Collection;
 
 @Repository
 public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long> {
+    List<TestQuestion> findAllByOrderByIdAsc();
+
     boolean existsByQuestionHash(String hash);
     boolean existsByQuestionHashIn(Collection<String> hashes);
     Optional<TestQuestion> findByQuestionHash(String hash);

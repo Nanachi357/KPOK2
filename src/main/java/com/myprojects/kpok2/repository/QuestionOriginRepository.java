@@ -8,9 +8,16 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 
 @Repository
 public interface QuestionOriginRepository extends JpaRepository<QuestionOrigin, Long> {
+
+    List<QuestionOrigin> findAllByOrderByQuizIdAscLanguageAscIdAsc();
+
+    List<QuestionOrigin> findAllByQuestionIdInOrderByQuestionIdAscQuizIdAscLanguageAsc(
+            Collection<Long> questionIds);
 
     @Modifying
     @Query(value = """

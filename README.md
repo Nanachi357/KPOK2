@@ -102,7 +102,14 @@ This repository contains the application source code only; it does not publish a
    - API searches contexts, question wording, answer options, and correct answers
    - Retrieval returns every revision/key pair, so variants and conflicts are not hidden
 
-5. **Statistics and Monitoring**
+5. **Portable Data Export**
+   - Produces the versioned `kpok2-question-export-v1` JSON format
+   - Filters by quiz, language, question type, text, and answer-key conflicts
+   - Includes canonical questions, revisions, keys, origins, observations, collection attempts, rich HTML, and asset metadata
+   - Keeps image binaries out of JSON; each stored asset is identified by SHA-256 and its `/api/assets/{id}` URL
+   - Writes desktop exports in the background through a temporary file and atomically replaces the selected destination
+
+6. **Statistics and Monitoring**
    - The system tracks iteration counts, newly added study items, and used accounts
    - Statistics can be viewed through a dedicated UI dialog
    - Parsing sessions are logged with detailed information
@@ -170,6 +177,8 @@ mvn spring-boot:run
 - `GET /api/questions` - Get all saved questions
 - `GET /api/questions/search?query={searchText}` - Search questions by text
 - `GET /api/assets/{id}` - Retrieve a stored question image (the question response maps content hashes to these URLs)
+- `GET /api/exports/questions/options` - List available quiz, language, and question-type filters
+- `GET /api/exports/questions` - Download a versioned JSON export; accepts repeated `quizId`, `language`, and `questionType` parameters plus `query`, `conflictsOnly`, and `includeAttempts`
 
 ### Navigation API 
 - `POST /api/navigation/start` - Start the navigation process
@@ -177,7 +186,7 @@ mvn spring-boot:run
 - `GET /api/navigation/status` - Get the current navigation system status
 
 ## Development Plans
-- Adding filtered JSON export for revisions, origins, and attempts
+- Adding a ZIP package with `manifest.json` and deduplicated image files
 - Adding collection limits and convergence-based stopping
 - Optimizing parsing performance
 
@@ -188,6 +197,7 @@ The application provides a graphical user interface (JavaFX) with the following 
 ### Main Window
 - Control buttons for starting/stopping navigation
 - Log display for real-time monitoring
+- Filtered, background JSON export with revision and attempt history
 - Menu options for accessing various functions
 
 ### Account Management

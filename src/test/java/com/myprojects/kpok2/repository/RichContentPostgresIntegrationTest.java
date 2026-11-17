@@ -7,7 +7,10 @@ import com.myprojects.kpok2.model.QuestionRevision;
 import com.myprojects.kpok2.model.QuestionRevisionAsset;
 import com.myprojects.kpok2.model.QuestionType;
 import com.myprojects.kpok2.model.TestQuestion;
+import com.myprojects.kpok2.model.dto.export.QuestionExportDocument;
+import com.myprojects.kpok2.model.dto.export.QuestionExportFilter;
 import com.myprojects.kpok2.service.QuestionAssetFetchService;
+import com.myprojects.kpok2.service.QuestionExportService;
 import com.myprojects.kpok2.service.QuestionOriginService;
 import com.myprojects.kpok2.service.QuestionVersionService;
 import com.myprojects.kpok2.service.TestQuestionService;
@@ -81,6 +84,9 @@ class RichContentPostgresIntegrationTest {
     @Autowired
     private QuestionOriginRepository originRepository;
 
+    @Autowired
+    private CollectionAttemptRepository attemptRepository;
+
     @Test
     void storesJsonbHtmlAndByteaWithARevisionPlacement() {
         LocalDateTime now = LocalDateTime.now();
@@ -142,6 +148,33 @@ class RichContentPostgresIntegrationTest {
                 stored.get(0).getRevision().getQuestionHtml());
         assertArrayEquals(content, stored.get(0).getAsset().getContent());
         assertTrue(stored.get(0).getAsset().getContentHash().length() == 64);
+    }
+
+    @Test
+    void exportsAndSerializesTheCurrentPostgresDataset() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        QuestionExportService exportService = new QuestionExportService(
+                questionRepository,
+                revisionRepository,
+                answerKeyRepository,
+                originRepository,
+                observationRepository,
+                revisionAssetRepository,
+                attemptRepository,
+                new JsonConverter(objectMapper),
+                objectMapper);
+
+        QuestionExportDocument document = exportService.buildExport(
+                QuestionExportFilter.all());
+        String json = objectMapper.writeValueAsString(document);
+
+        assertEquals(QuestionExportDocument.CURRENT_SCHEMA_VERSION,
+                document.schemaVersion());
+        assertEquals(document.questions().size(),
+                document.summary().canonicalQuestions());
+        assertEquals(questionRepository.count(), document.questions().size());
+        assertTrue(json.contains("\"schemaVersion\":\"kpok2-question-export-v1\""));
+        assertTrue(json.contains("\"questions\""));
     }
 
     @Test

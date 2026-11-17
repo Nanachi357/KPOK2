@@ -125,7 +125,7 @@ Time Estimates:
   - Update notification system 💫 [S]
   - Changelog display 💫 [S]
 - Data Management ⭐ [L]
-  - Question export functionality
+  - Question export functionality ✓
   - Question import system
   - Backup/restore capabilities
 - Analytics Dashboard 💫 [XL] (not planned for release)
@@ -227,4 +227,4 @@ Time Estimates:
 - UI Development → Core Framework
 - Multi-Account → Authentication Module
 - Analytics → Database Schema
-- Distributed Processing → Multi-Account Management 
+- Distributed Processing → Multi-Account Management
