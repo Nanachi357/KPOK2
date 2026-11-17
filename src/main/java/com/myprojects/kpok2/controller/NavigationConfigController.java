@@ -6,6 +6,7 @@ import com.myprojects.kpok2.model.QuizCatalogEntry;
 import com.myprojects.kpok2.model.QuizCatalogSnapshot;
 import com.myprojects.kpok2.model.QuizTarget;
 import com.myprojects.kpok2.service.catalog.QuizCatalogService;
+import com.myprojects.kpok2.service.navigation.CollectionRunAdvisory;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -13,6 +14,8 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -83,7 +86,7 @@ public class NavigationConfigController {
     
     // Constants for iteration count
     private static final int MIN_ITERATIONS = 0;
-    private static final int MAX_ITERATIONS = 10000;
+    private static final int MAX_ITERATIONS = Integer.MAX_VALUE;
     private static final int DEFAULT_ITERATIONS = 10;
     
     @Autowired
@@ -277,8 +280,10 @@ public class NavigationConfigController {
             // Validate iteration count
             if (iterationCount < MIN_ITERATIONS) {
                 iterationCount = MIN_ITERATIONS;
-            } else if (iterationCount > MAX_ITERATIONS) {
-                iterationCount = MAX_ITERATIONS;
+            }
+
+            if (!confirmLongCollectionRun(iterationCount, maxThreads)) {
+                return;
             }
             
             // Save to service
@@ -293,6 +298,33 @@ public class NavigationConfigController {
             log.error("Error saving navigation settings", e);
             showError("Invalid navigation settings", e.getMessage());
         }
+    }
+
+    private boolean confirmLongCollectionRun(int iterationCount, int maxThreads) {
+        CollectionRunAdvisory advisory = CollectionRunAdvisory.assess(
+                iterationCount, maxThreads);
+        if (!advisory.requiresWarning()) {
+            return true;
+        }
+
+        String content = advisory.kind() == CollectionRunAdvisory.Kind.UNLIMITED
+                ? "This run has no attempt limit and will continue until you stop it. "
+                + "Random question delivery does not prove that the whole bank was collected."
+                : "This run will make " + advisory.attempts() + " attempts in about "
+                + advisory.parallelRounds() + " parallel rounds. Repeated questions are normal, "
+                + "and a large run still does not guarantee complete bank coverage.";
+
+        ButtonType saveAnyway = new ButtonType("Save anyway", ButtonBar.ButtonData.OK_DONE);
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Long collection run");
+        alert.setHeaderText("Review the selected attempt count");
+        alert.setContentText(content
+                + " You can safely stop after the currently active attempts from the main window.");
+        alert.getButtonTypes().setAll(saveAnyway, ButtonType.CANCEL);
+        if (stage != null) {
+            alert.initOwner(stage);
+        }
+        return alert.showAndWait().orElse(ButtonType.CANCEL) == saveAnyway;
     }
 
     private void showError(String title, String message) {

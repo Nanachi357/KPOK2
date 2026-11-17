@@ -55,7 +55,11 @@
         
         <!-- Iteration Count Row -->
         <Label text="%navigation.config.iteration.count" GridPane.rowIndex="6" GridPane.columnIndex="0"/>
-        <Spinner fx:id="iterationCountSpinner" editable="true" GridPane.rowIndex="6" GridPane.columnIndex="1"/>
+        <VBox spacing="3" GridPane.rowIndex="6" GridPane.columnIndex="1">
+            <Spinner fx:id="iterationCountSpinner" editable="true"/>
+            <Label text="%navigation.config.iteration.count.help"
+                   style="-fx-text-fill: #666666; -fx-font-size: 11px;"/>
+        </VBox>
         
         <!-- Session Reuse Row -->
         <Label text="%navigation.config.reuse.session" GridPane.rowIndex="7" GridPane.columnIndex="0"/>
