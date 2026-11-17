@@ -34,4 +34,8 @@ public class NavigationManager {
     public boolean isStopAfterCurrentRequested() {
         return navigationService.isStopAfterCurrentRequested();
     }
+
+    public boolean isImmediateStopRequested() {
+        return navigationService.isImmediateStopRequested();
+    }
 }

@@ -17,6 +17,7 @@ class MainWindowFxmlTest {
         assertNotNull(messages.getString("navigation.run.stop.after.current"));
         assertNotNull(messages.getString("navigation.run.stop.now"));
         assertNotNull(messages.getString("navigation.run.status.stopping"));
+        assertNotNull(messages.getString("navigation.run.status.stopping.now"));
 
         try (var stream = getClass().getResourceAsStream("/fxml/main-window.fxml")) {
             assertNotNull(stream);

@@ -196,7 +196,7 @@ mvn spring-boot:run
 - `POST /api/navigation/start` - Start the navigation process
 - `POST /api/navigation/stop-after-current` - Stop starting attempts and finish the active attempts
 - `POST /api/navigation/stop` - Interrupt active navigation immediately
-- `GET /api/navigation/status` - Return `running`, `stopping-after-current`, or `stopped`
+- `GET /api/navigation/status` - Return `running`, `stopping-after-current`, `stopping-now`, or `stopped`
 
 ## Development Plans
 - Adding portable backup and restore on top of the JSON transfer format

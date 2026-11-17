@@ -209,16 +209,25 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     private void updateStatus() {
         boolean isRunning = navigationManager.isRunning();
         boolean isStopping = isRunning && navigationManager.isStopAfterCurrentRequested();
+        boolean isStoppingNow = isRunning && navigationManager.isImmediateStopRequested();
         Platform.runLater(() -> {
             if (!isRunning) {
+                startStopButton.setDisable(false);
                 startStopButton.setText(message("navigation.run.start"));
                 statusLabel.setText(message("navigation.run.status.stopped"));
                 statusBarLabel.setText(message("navigation.run.status.ready"));
+            } else if (isStoppingNow) {
+                startStopButton.setDisable(true);
+                startStopButton.setText(message("navigation.run.stopping.now"));
+                statusLabel.setText(message("navigation.run.status.stopping.now"));
+                statusBarLabel.setText(message("navigation.run.status.closing"));
             } else if (isStopping) {
+                startStopButton.setDisable(false);
                 startStopButton.setText(message("navigation.run.stop.now"));
                 statusLabel.setText(message("navigation.run.status.stopping"));
                 statusBarLabel.setText(message("navigation.run.status.finishing"));
             } else {
+                startStopButton.setDisable(false);
                 startStopButton.setText(message("navigation.run.stop.after.current"));
                 statusLabel.setText(message("navigation.run.status.running"));
                 statusBarLabel.setText(message("navigation.run.status.collecting"));

@@ -88,6 +88,9 @@ public class NavigationController {
         if (!navigationService.isRunning()) {
             return ResponseEntity.ok("stopped");
         }
+        if (navigationService.isImmediateStopRequested()) {
+            return ResponseEntity.ok("stopping-now");
+        }
         return ResponseEntity.ok(navigationService.isStopAfterCurrentRequested()
                 ? "stopping-after-current"
                 : "running");

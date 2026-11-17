@@ -58,13 +58,19 @@ class NavigationRunControlTest {
     void immediateStopRejectsNewWorkAndAllowsNextRun() {
         NavigationRunControl control = new NavigationRunControl();
         control.beginRun(0);
+        assertTrue(control.tryReserveIteration());
 
         assertTrue(control.stopNow());
-        assertFalse(control.isRunning());
+        assertTrue(control.isRunning());
+        assertTrue(control.isImmediateStopRequested());
         assertFalse(control.tryReserveIteration());
+        assertFalse(control.beginRun(3));
 
+        control.finishIteration(false);
         control.markStopped();
+        assertFalse(control.isRunning());
         assertTrue(control.beginRun(3));
         assertFalse(control.isStopAfterCurrentRequested());
+        assertFalse(control.isImmediateStopRequested());
     }
 }

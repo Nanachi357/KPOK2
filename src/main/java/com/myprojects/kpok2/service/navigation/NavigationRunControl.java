@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 public class NavigationRunControl {
     private boolean running;
     private boolean stopAfterCurrentRequested;
+    private boolean immediateStopRequested;
     private int targetIterations;
     private int completedIterations;
     private int inFlightIterations;
@@ -24,6 +25,7 @@ public class NavigationRunControl {
 
         this.running = true;
         this.stopAfterCurrentRequested = false;
+        this.immediateStopRequested = false;
         this.targetIterations = targetIterations;
         this.completedIterations = 0;
         this.inFlightIterations = 0;
@@ -66,8 +68,8 @@ public class NavigationRunControl {
         if (!running) {
             return false;
         }
-        running = false;
         stopAfterCurrentRequested = true;
+        immediateStopRequested = true;
         return true;
     }
 
@@ -82,6 +84,10 @@ public class NavigationRunControl {
 
     public synchronized boolean isStopAfterCurrentRequested() {
         return stopAfterCurrentRequested;
+    }
+
+    public synchronized boolean isImmediateStopRequested() {
+        return immediateStopRequested;
     }
 
     public synchronized boolean shouldPrepareAnotherIteration() {

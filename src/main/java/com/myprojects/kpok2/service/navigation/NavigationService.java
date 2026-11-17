@@ -145,6 +145,10 @@ public class NavigationService {
         return runControl.isStopAfterCurrentRequested();
     }
 
+    public boolean isImmediateStopRequested() {
+        return runControl.isImmediateStopRequested();
+    }
+
     private void awaitRunCompletion(ExecutorService runExecutor) {
         try {
             while (!runExecutor.awaitTermination(1, TimeUnit.DAYS)) {
@@ -154,9 +158,11 @@ public class NavigationService {
             Thread.currentThread().interrupt();
             runExecutor.shutdownNow();
         } finally {
-            runControl.markStopped();
-            if (executorService == runExecutor) {
-                executorService = null;
+            synchronized (this) {
+                if (executorService == runExecutor) {
+                    runControl.markStopped();
+                    executorService = null;
+                }
             }
             log.info("All navigation workers have stopped");
         }
