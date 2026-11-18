@@ -204,7 +204,6 @@ mvn spring-boot:run
 ## Development Plans
 - Adding portable backup and restore on top of the JSON transfer format
 - Adding runtime estimates for long collection runs
-- Adding export of the current question-library selection
 - Optimizing parsing performance
 
 ## UI Features
@@ -213,7 +212,7 @@ The application provides a graphical user interface (JavaFX) with the following 
 
 ### Main Window
 - Start, graceful stop-after-current, and confirmed emergency-stop controls with live status
-- Non-blocking question library with full-text search, quiz/language/type/conflict filters, canonical rows, 25-item pages, and revision/key/source details
+- Non-blocking question library with full-text search, quiz/language/type/conflict filters, canonical rows, 25-item pages, revision/key/source details, and filtered JSON export
 - Log display for real-time monitoring
 - Filtered, background JSON export with revision and attempt history
 - Preview-first, background JSON import with an explicit confirmation step

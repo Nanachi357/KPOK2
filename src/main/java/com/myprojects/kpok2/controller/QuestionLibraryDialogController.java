@@ -6,6 +6,8 @@ import com.myprojects.kpok2.model.dto.QuestionLibraryDetailDto;
 import com.myprojects.kpok2.model.dto.QuestionLibraryItemDto;
 import com.myprojects.kpok2.model.dto.QuestionLibraryPageDto;
 import com.myprojects.kpok2.model.dto.export.QuestionExportOptionsDto;
+import com.myprojects.kpok2.model.dto.export.QuestionExportFilter;
+import com.myprojects.kpok2.model.dto.export.QuestionExportDocument;
 import com.myprojects.kpok2.service.QuestionExportService;
 import com.myprojects.kpok2.service.QuestionLibraryDetailService;
 import com.myprojects.kpok2.service.QuestionLibraryService;
@@ -27,6 +29,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ListCell;
 import javafx.stage.Stage;
+import javafx.stage.FileChooser;
 import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +38,8 @@ import org.springframework.stereotype.Component;
 import java.text.MessageFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.io.File;
+import java.util.Set;
 import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
@@ -87,6 +92,8 @@ public class QuestionLibraryDialogController {
     @FXML
     private Button nextButton;
     @FXML
+    private Button exportButton;
+    @FXML
     private Label pageLabel;
     @FXML
     private Label resultLabel;
@@ -99,7 +106,9 @@ public class QuestionLibraryDialogController {
 
     private Stage stage;
     private QuestionLibraryPageDto currentPage;
+    private QuestionLibraryFilter appliedFilter = QuestionLibraryFilter.search("");
     private boolean loading;
+    private boolean exporting;
 
     public void setStage(Stage stage) {
         this.stage = stage;
@@ -157,14 +166,14 @@ public class QuestionLibraryDialogController {
     @FXML
     public void onPreviousClick() {
         if (currentPage != null && !currentPage.first()) {
-            loadPage(currentPage.page() - 1);
+            loadPage(currentPage.page() - 1, appliedFilter);
         }
     }
 
     @FXML
     public void onNextClick() {
         if (currentPage != null && !currentPage.last()) {
-            loadPage(currentPage.page() + 1);
+            loadPage(currentPage.page() + 1, appliedFilter);
         }
     }
 
@@ -176,8 +185,11 @@ public class QuestionLibraryDialogController {
     }
 
     private void loadPage(int pageNumber) {
+        loadPage(pageNumber, selectedFilter());
+    }
+
+    private void loadPage(int pageNumber, QuestionLibraryFilter filter) {
         long requestId = requestSequence.incrementAndGet();
-        QuestionLibraryFilter filter = selectedFilter();
         setLoading(true);
         resultLabel.setText(text("question.library.loading"));
 
@@ -192,6 +204,7 @@ public class QuestionLibraryDialogController {
                 return;
             }
             currentPage = task.getValue();
+            appliedFilter = filter;
             clearDetail();
             questionsTable.getItems().setAll(currentPage.items());
             updatePageSummary();
@@ -212,6 +225,70 @@ public class QuestionLibraryDialogController {
         Thread worker = new Thread(task, "question-library-page-loader");
         worker.setDaemon(true);
         worker.start();
+    }
+
+    @FXML
+    public void onExportCurrentClick() {
+        if (currentPage == null || currentPage.totalItems() == 0 || exporting) {
+            return;
+        }
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(text("question.library.export.title"));
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("JSON Files", "*.json"));
+        chooser.setInitialFileName("kpok2_library_"
+                + LocalDateTime.now().format(
+                DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"))
+                + ".json");
+        File target = chooser.showSaveDialog(stage);
+        if (target == null) {
+            return;
+        }
+
+        QuestionExportFilter exportFilter = toExportFilter(appliedFilter);
+        setExporting(true);
+        resultLabel.setText(text("question.library.export.running"));
+        Task<QuestionExportDocument.ExportSummary> task = new Task<>() {
+            @Override
+            protected QuestionExportDocument.ExportSummary call() throws Exception {
+                return questionExportService.writeJson(target.toPath(), exportFilter);
+            }
+        };
+        task.setOnSucceeded(event -> {
+            QuestionExportDocument.ExportSummary summary = task.getValue();
+            resultLabel.setText(format(
+                    "question.library.export.complete",
+                    summary.canonicalQuestions(),
+                    summary.revisions()));
+            setExporting(false);
+            log.info("Exported {} filtered library questions to {}",
+                    summary.canonicalQuestions(), target.getAbsolutePath());
+        });
+        task.setOnFailed(event -> {
+            Throwable failure = task.getException();
+            log.error("Could not export current question-library selection", failure);
+            resultLabel.setText(format(
+                    "question.library.export.failed",
+                    failure == null ? "" : safe(failure.getMessage())));
+            setExporting(false);
+        });
+        Thread worker = new Thread(task, "question-library-export");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private QuestionExportFilter toExportFilter(QuestionLibraryFilter filter) {
+        return new QuestionExportFilter(
+                filter.quizId() == null ? Set.of() : Set.of(filter.quizId()),
+                filter.language().isBlank()
+                        ? Set.of()
+                        : Set.of(filter.language()),
+                filter.questionType() == null
+                        ? Set.of()
+                        : Set.of(filter.questionType()),
+                filter.conflictsOnly(),
+                true,
+                filter.query());
     }
 
     private void onQuestionSelected(QuestionLibraryItemDto selected) {
@@ -482,6 +559,7 @@ public class QuestionLibraryDialogController {
         loadingIndicator.setVisible(loading);
         loadingIndicator.setManaged(loading);
         updateNavigationButtons();
+        updateExportButton();
     }
 
     private void updateNavigationButtons() {
@@ -489,6 +567,19 @@ public class QuestionLibraryDialogController {
                 loading || currentPage == null || currentPage.first());
         nextButton.setDisable(
                 loading || currentPage == null || currentPage.last());
+    }
+
+    private void setExporting(boolean exporting) {
+        this.exporting = exporting;
+        updateExportButton();
+    }
+
+    private void updateExportButton() {
+        exportButton.setDisable(
+                loading
+                        || exporting
+                        || currentPage == null
+                        || currentPage.totalItems() == 0);
     }
 
     private void configureWrappingCell(

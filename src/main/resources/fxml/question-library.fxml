@@ -69,6 +69,8 @@
                 onAction="#onNextClick" disable="true"/>
         <ProgressIndicator fx:id="loadingIndicator" prefHeight="22" prefWidth="22"/>
         <Label fx:id="resultLabel" text="%question.library.loading" HBox.hgrow="ALWAYS"/>
+        <Button fx:id="exportButton" text="%question.library.export.current"
+                onAction="#onExportCurrentClick" disable="true"/>
         <Button text="%question.library.close" onAction="#onCloseClick"/>
     </HBox>
 </VBox>
