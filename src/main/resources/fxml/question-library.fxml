@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.myprojects.kpok2.controller.QuestionLibraryDialogController"
+      prefHeight="650.0" prefWidth="1100.0" spacing="10">
+    <padding>
+        <Insets top="16" right="16" bottom="16" left="16"/>
+    </padding>
+
+    <Label text="%question.library.title"
+           style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Label text="%question.library.description" wrapText="true"/>
+
+    <HBox spacing="8">
+        <TextField fx:id="searchField" promptText="%question.library.search.prompt"
+                   onAction="#onSearchClick" HBox.hgrow="ALWAYS"/>
+        <Button text="%question.library.search" onAction="#onSearchClick" defaultButton="true"/>
+        <Button text="%question.library.clear" onAction="#onClearClick"/>
+    </HBox>
+
+    <TableView fx:id="questionsTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="idColumn" text="%question.library.column.id" prefWidth="70"/>
+            <TableColumn fx:id="contextColumn" text="%question.library.column.context" prefWidth="230"/>
+            <TableColumn fx:id="questionColumn" text="%question.library.column.question" prefWidth="400"/>
+            <TableColumn fx:id="typeColumn" text="%question.library.column.type" prefWidth="120"/>
+            <TableColumn fx:id="revisionsColumn" text="%question.library.column.revisions" prefWidth="90"/>
+            <TableColumn fx:id="keysColumn" text="%question.library.column.keys" prefWidth="90"/>
+            <TableColumn fx:id="conflictColumn" text="%question.library.column.conflict" prefWidth="90"/>
+        </columns>
+    </TableView>
+
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Button fx:id="previousButton" text="%question.library.previous"
+                onAction="#onPreviousClick" disable="true"/>
+        <Label fx:id="pageLabel" text="%question.library.page.initial"/>
+        <Button fx:id="nextButton" text="%question.library.next"
+                onAction="#onNextClick" disable="true"/>
+        <ProgressIndicator fx:id="loadingIndicator" prefHeight="22" prefWidth="22"/>
+        <Label fx:id="resultLabel" text="%question.library.loading" HBox.hgrow="ALWAYS"/>
+        <Button text="%question.library.close" onAction="#onCloseClick"/>
+    </HBox>
+</VBox>

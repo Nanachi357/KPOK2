@@ -16,6 +16,7 @@
             <MenuItem text="%menu.file.exit" onAction="#onExitClick"/>
         </Menu>
         <Menu text="%menu.testcenter">
+            <MenuItem text="%menu.testcenter.library" onAction="#onQuestionLibraryClick"/>
             <MenuItem text="%menu.testcenter.accounts" onAction="#onManageAccountsClick"/>
             <MenuItem text="%menu.testcenter.navigation" onAction="#onSettingsClick"/>
             <MenuItem text="%menu.testcenter.statistics" onAction="#onStatisticsClick"/>

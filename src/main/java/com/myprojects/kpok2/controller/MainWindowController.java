@@ -90,6 +90,7 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     private static final String PREF_AUTOSAVE_NEW_TESTS_ENABLED = "autosave_new_tests_enabled";
     private static final String PREF_AUTOSAVE_NEW_TESTS_INTERVAL = "autosave_new_tests_interval";
     private static ScheduledFuture<?> newTestsScheduledTask;
+    private Stage questionLibraryStage;
     
     @FXML
     private CheckBox numberTestsCheckBox;
@@ -745,6 +746,38 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
             stage.showAndWait();
         } catch (Exception e) {
             log.error("Error opening question import dialog", e);
+        }
+    }
+
+    @FXML
+    public void onQuestionLibraryClick() {
+        if (questionLibraryStage != null && questionLibraryStage.isShowing()) {
+            questionLibraryStage.toFront();
+            questionLibraryStage.requestFocus();
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/question-library.fxml"));
+            loader.setControllerFactory(applicationContext::getBean);
+            loader.setResources(ResourceBundle.getBundle("i18n.messages"));
+
+            Parent root = loader.load();
+            Stage stage = new Stage();
+            stage.setTitle(message("question.library.title"));
+            stage.setScene(new Scene(root));
+            stage.initOwner(startStopButton.getScene().getWindow());
+            stage.setMinWidth(850);
+            stage.setMinHeight(500);
+
+            QuestionLibraryDialogController controller = loader.getController();
+            controller.setStage(stage);
+            questionLibraryStage = stage;
+            stage.setOnHidden(event -> questionLibraryStage = null);
+            stage.show();
+        } catch (Exception e) {
+            log.error("Error opening question library", e);
         }
     }
 
