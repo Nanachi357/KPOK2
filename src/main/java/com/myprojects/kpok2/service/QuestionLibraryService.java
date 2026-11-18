@@ -3,6 +3,7 @@ package com.myprojects.kpok2.service;
 import com.myprojects.kpok2.model.QuestionType;
 import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.model.dto.QuestionLibraryItemDto;
+import com.myprojects.kpok2.model.dto.QuestionLibraryFilter;
 import com.myprojects.kpok2.model.dto.QuestionLibraryPageDto;
 import com.myprojects.kpok2.model.dto.QuestionRecordDto;
 import com.myprojects.kpok2.repository.TestQuestionRepository;
@@ -30,12 +31,29 @@ public class QuestionLibraryService {
 
     @Transactional(readOnly = true)
     public QuestionLibraryPageDto findPage(String query, int requestedPage, int requestedSize) {
+        return findPage(
+                QuestionLibraryFilter.search(query),
+                requestedPage,
+                requestedSize);
+    }
+
+    @Transactional(readOnly = true)
+    public QuestionLibraryPageDto findPage(
+            QuestionLibraryFilter requestedFilter,
+            int requestedPage,
+            int requestedSize) {
         int pageNumber = Math.max(0, requestedPage);
         int pageSize = normalizePageSize(requestedSize);
-        String searchText = query == null ? "" : query.trim();
+        QuestionLibraryFilter filter = requestedFilter == null
+                ? QuestionLibraryFilter.search("")
+                : requestedFilter;
 
         Page<TestQuestion> page = questionRepository.findLibraryPage(
-                searchText,
+                filter.query(),
+                filter.quizId(),
+                filter.language(),
+                filter.questionType() == null ? "" : filter.questionType().name(),
+                filter.conflictsOnly(),
                 PageRequest.of(pageNumber, pageSize));
         List<Long> questionIds = page.getContent().stream()
                 .map(TestQuestion::getId)

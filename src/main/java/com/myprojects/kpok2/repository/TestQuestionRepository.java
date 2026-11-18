@@ -33,7 +33,7 @@ public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long
             FROM test_questions q
             LEFT JOIN question_revisions r ON r.question_id = q.id
             LEFT JOIN answer_keys k ON k.revision_id = r.id
-            WHERE :searchText = ''
+            WHERE (:searchText = ''
                OR LOWER(COALESCE(q.question_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
                OR LOWER(COALESCE(q.context_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
                OR LOWER(COALESCE(q.question_hash, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
@@ -41,6 +41,29 @@ public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long
                OR LOWER(COALESCE(r.context_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
                OR LOWER(CAST(r.possible_answers_json AS TEXT)) LIKE LOWER(CONCAT('%', :searchText, '%'))
                OR LOWER(CAST(k.correct_answers_json AS TEXT)) LIKE LOWER(CONCAT('%', :searchText, '%'))
+            )
+              AND ((:quizId IS NULL AND :language = '') OR EXISTS (
+                    SELECT 1
+                    FROM question_origins o
+                    WHERE o.question_id = q.id
+                      AND (:quizId IS NULL OR o.quiz_id = :quizId)
+                      AND (:language = '' OR LOWER(o.language) = :language)
+              ))
+              AND (:questionType = ''
+                   OR q.question_type = :questionType
+                   OR EXISTS (
+                        SELECT 1 FROM question_revisions tr
+                        WHERE tr.question_id = q.id
+                          AND tr.question_type = :questionType
+                   ))
+              AND (:conflictsOnly = FALSE OR EXISTS (
+                    SELECT 1
+                    FROM question_revisions cr
+                    JOIN answer_keys ck ON ck.revision_id = cr.id
+                    WHERE cr.question_id = q.id
+                    GROUP BY cr.id
+                    HAVING COUNT(ck.id) > 1
+              ))
             ORDER BY q.id DESC
             """,
             countQuery = """
@@ -48,7 +71,7 @@ public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long
             FROM test_questions q
             LEFT JOIN question_revisions r ON r.question_id = q.id
             LEFT JOIN answer_keys k ON k.revision_id = r.id
-            WHERE :searchText = ''
+            WHERE (:searchText = ''
                OR LOWER(COALESCE(q.question_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
                OR LOWER(COALESCE(q.context_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
                OR LOWER(COALESCE(q.question_hash, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
@@ -56,9 +79,36 @@ public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long
                OR LOWER(COALESCE(r.context_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
                OR LOWER(CAST(r.possible_answers_json AS TEXT)) LIKE LOWER(CONCAT('%', :searchText, '%'))
                OR LOWER(CAST(k.correct_answers_json AS TEXT)) LIKE LOWER(CONCAT('%', :searchText, '%'))
+            )
+              AND ((:quizId IS NULL AND :language = '') OR EXISTS (
+                    SELECT 1
+                    FROM question_origins o
+                    WHERE o.question_id = q.id
+                      AND (:quizId IS NULL OR o.quiz_id = :quizId)
+                      AND (:language = '' OR LOWER(o.language) = :language)
+              ))
+              AND (:questionType = ''
+                   OR q.question_type = :questionType
+                   OR EXISTS (
+                        SELECT 1 FROM question_revisions tr
+                        WHERE tr.question_id = q.id
+                          AND tr.question_type = :questionType
+                   ))
+              AND (:conflictsOnly = FALSE OR EXISTS (
+                    SELECT 1
+                    FROM question_revisions cr
+                    JOIN answer_keys ck ON ck.revision_id = cr.id
+                    WHERE cr.question_id = q.id
+                    GROUP BY cr.id
+                    HAVING COUNT(ck.id) > 1
+              ))
             """,
             nativeQuery = true)
     Page<TestQuestion> findLibraryPage(
             @Param("searchText") String searchText,
+            @Param("quizId") Long quizId,
+            @Param("language") String language,
+            @Param("questionType") String questionType,
+            @Param("conflictsOnly") boolean conflictsOnly,
             Pageable pageable);
 }

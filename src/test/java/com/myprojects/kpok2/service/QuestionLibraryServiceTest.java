@@ -3,6 +3,7 @@ package com.myprojects.kpok2.service;
 import com.myprojects.kpok2.model.QuestionType;
 import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.model.dto.QuestionRecordDto;
+import com.myprojects.kpok2.model.dto.QuestionLibraryFilter;
 import com.myprojects.kpok2.repository.TestQuestionRepository;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -34,7 +35,8 @@ class QuestionLibraryServiceTest {
                 .questionType(QuestionType.MULTIPLE_CHOICE)
                 .build();
         PageRequest request = PageRequest.of(0, 25);
-        when(questions.findLibraryPage("kidney", request)).thenReturn(
+        when(questions.findLibraryPage(
+                "kidney", null, "", "", false, request)).thenReturn(
                 new PageImpl<>(List.of(question), request, 41));
         when(versions.getRecordsForQuestions(List.of(7L))).thenReturn(List.of(
                 record(7L, 10L, 100L, false),
@@ -62,18 +64,58 @@ class QuestionLibraryServiceTest {
         TestQuestionRepository questions = mock(TestQuestionRepository.class);
         QuestionVersionService versions = mock(QuestionVersionService.class);
         QuestionLibraryService service = new QuestionLibraryService(questions, versions);
-        when(questions.findLibraryPage(org.mockito.ArgumentMatchers.anyString(),
+        when(questions.findLibraryPage(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.nullable(Long.class),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyBoolean(),
                 org.mockito.ArgumentMatchers.any(Pageable.class)))
                 .thenReturn(Page.empty());
 
-        service.findPage(null, -5, 500);
+        service.findPage((String) null, -5, 500);
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
         verify(questions).findLibraryPage(
-                org.mockito.ArgumentMatchers.eq(""), pageable.capture());
+                org.mockito.ArgumentMatchers.eq(""),
+                org.mockito.ArgumentMatchers.isNull(),
+                org.mockito.ArgumentMatchers.eq(""),
+                org.mockito.ArgumentMatchers.eq(""),
+                org.mockito.ArgumentMatchers.eq(false),
+                pageable.capture());
         assertEquals(0, pageable.getValue().getPageNumber());
         assertEquals(QuestionLibraryService.MAX_PAGE_SIZE,
                 pageable.getValue().getPageSize());
+    }
+
+    @Test
+    void passesNormalizedScopeAndConflictFiltersToRepository() {
+        TestQuestionRepository questions = mock(TestQuestionRepository.class);
+        QuestionVersionService versions = mock(QuestionVersionService.class);
+        QuestionLibraryService service = new QuestionLibraryService(questions, versions);
+        PageRequest request = PageRequest.of(1, 25);
+        when(questions.findLibraryPage(
+                "heart",
+                173L,
+                "uk",
+                QuestionType.MULTIPLE_CHOICE.name(),
+                true,
+                request)).thenReturn(Page.empty(request));
+
+        service.findPage(new QuestionLibraryFilter(
+                "  heart  ",
+                173L,
+                " UK ",
+                QuestionType.MULTIPLE_CHOICE,
+                true), 1, 25);
+
+        verify(questions).findLibraryPage(
+                "heart",
+                173L,
+                "uk",
+                QuestionType.MULTIPLE_CHOICE.name(),
+                true,
+                request);
     }
 
     private QuestionRecordDto record(

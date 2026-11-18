@@ -192,7 +192,7 @@ mvn spring-boot:run
 - `GET /api/exports/questions` - Download a versioned JSON export; accepts repeated `quizId`, `language`, and `questionType` parameters plus `query`, `conflictsOnly`, and `includeAttempts`
 - `POST /api/imports/questions/preview` - Validate an export and return a read-only content summary
 - `POST /api/imports/questions` - Validate and atomically merge a versioned export into the local database
-- `GET /api/question-library?query=&page=0&size=25` - Search and page through canonical questions
+- `GET /api/question-library?query=&quizId=&language=&questionType=&conflictsOnly=false&page=0&size=25` - Filter, search, and page through canonical questions
 
 ### Navigation API 
 - `POST /api/navigation/start` - Start the navigation process

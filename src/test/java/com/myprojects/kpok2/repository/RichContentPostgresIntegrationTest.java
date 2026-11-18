@@ -6,6 +6,7 @@ import com.myprojects.kpok2.model.QuestionAsset;
 import com.myprojects.kpok2.model.QuestionContentLocation;
 import com.myprojects.kpok2.model.QuestionRevision;
 import com.myprojects.kpok2.model.QuestionRevisionAsset;
+import com.myprojects.kpok2.model.QuestionOrigin;
 import com.myprojects.kpok2.model.QuestionType;
 import com.myprojects.kpok2.model.TestQuestion;
 import com.myprojects.kpok2.model.dto.export.QuestionExportDocument;
@@ -127,13 +128,43 @@ class RichContentPostgresIntegrationTest {
                 .firstSeenAt(now)
                 .lastSeenAt(now)
                 .build());
+        answerKeyRepository.save(AnswerKey.builder()
+                .revision(revision)
+                .keyHash(unique + "conflict")
+                .correctAnswersJson("[\"Alternative answer\"]")
+                .normalizedCorrectAnswersJson("[\"alternative answer\"]")
+                .firstSeenAt(now)
+                .lastSeenAt(now)
+                .build());
+        long quizId = 900_000L + question.getId();
+        originRepository.save(QuestionOrigin.builder()
+                .question(question)
+                .quizId(quizId)
+                .quizUrl("https://test.testcentr.org.ua/mod/quiz/view.php?id=" + quizId)
+                .language("uk")
+                .firstSeenAt(now)
+                .lastSeenAt(now)
+                .build());
         answerKeyRepository.flush();
 
         var page = questionRepository.findLibraryPage(
-                answerToken, PageRequest.of(0, 10));
+                answerToken,
+                quizId,
+                "uk",
+                QuestionType.SINGLE_CHOICE.name(),
+                true,
+                PageRequest.of(0, 10));
+        var wrongLanguage = questionRepository.findLibraryPage(
+                answerToken,
+                quizId,
+                "en",
+                QuestionType.SINGLE_CHOICE.name(),
+                true,
+                PageRequest.of(0, 10));
 
         assertEquals(1, page.getTotalElements());
         assertEquals(question.getId(), page.getContent().get(0).getId());
+        assertTrue(wrongLanguage.isEmpty());
     }
 
     @Test
