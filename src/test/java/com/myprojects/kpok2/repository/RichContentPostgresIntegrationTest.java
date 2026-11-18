@@ -1,6 +1,7 @@
 package com.myprojects.kpok2.repository;
 
 import com.myprojects.kpok2.model.AssetFetchStatus;
+import com.myprojects.kpok2.model.AnswerKey;
 import com.myprojects.kpok2.model.QuestionAsset;
 import com.myprojects.kpok2.model.QuestionContentLocation;
 import com.myprojects.kpok2.model.QuestionRevision;
@@ -32,6 +33,7 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
 import java.nio.file.Files;
@@ -88,6 +90,51 @@ class RichContentPostgresIntegrationTest {
 
     @Autowired
     private CollectionAttemptRepository attemptRepository;
+
+    @Test
+    void pagesAndSearchesCanonicalQuestionsByAnswerContent() {
+        LocalDateTime now = LocalDateTime.now();
+        String unique = UUID.randomUUID().toString().replace("-", "");
+        String answerToken = "answer-" + unique;
+        TestQuestion question = questionRepository.save(TestQuestion.builder()
+                .questionText("Library integration question")
+                .normalizedText("library integration question")
+                .possibleAnswersJson("[\"Ordinary answer\"]")
+                .correctAnswersJson("[\"Ordinary answer\"]")
+                .correctAnswer("Ordinary answer")
+                .normalizedCorrectAnswer("ordinary answer")
+                .normalizationVersion(5)
+                .questionType(QuestionType.SINGLE_CHOICE)
+                .questionHash(unique)
+                .parsedAt(now)
+                .build());
+        QuestionRevision revision = revisionRepository.save(QuestionRevision.builder()
+                .question(question)
+                .revisionHash(unique)
+                .questionText(question.getQuestionText())
+                .possibleAnswersJson("[\"" + answerToken + "\"]")
+                .normalizedAnswersJson("[\"" + answerToken + "\"]")
+                .answerHtmlJson("[]")
+                .questionType(QuestionType.SINGLE_CHOICE)
+                .firstSeenAt(now)
+                .lastSeenAt(now)
+                .build());
+        answerKeyRepository.save(AnswerKey.builder()
+                .revision(revision)
+                .keyHash(unique)
+                .correctAnswersJson("[\"" + answerToken + "\"]")
+                .normalizedCorrectAnswersJson("[\"" + answerToken + "\"]")
+                .firstSeenAt(now)
+                .lastSeenAt(now)
+                .build());
+        answerKeyRepository.flush();
+
+        var page = questionRepository.findLibraryPage(
+                answerToken, PageRequest.of(0, 10));
+
+        assertEquals(1, page.getTotalElements());
+        assertEquals(question.getId(), page.getContent().get(0).getId());
+    }
 
     @Test
     void storesJsonbHtmlAndByteaWithARevisionPlacement() {

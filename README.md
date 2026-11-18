@@ -100,6 +100,7 @@ This repository contains the application source code only; it does not publish a
 
 4. **Question Search and Retrieval**
    - API searches contexts, question wording, answer options, and correct answers
+   - The question library returns canonical questions in bounded pages with revision, answer-key, and conflict counts
    - Retrieval returns every revision/key pair, so variants and conflicts are not hidden
 
 5. **Portable Data Export**
@@ -191,6 +192,7 @@ mvn spring-boot:run
 - `GET /api/exports/questions` - Download a versioned JSON export; accepts repeated `quizId`, `language`, and `questionType` parameters plus `query`, `conflictsOnly`, and `includeAttempts`
 - `POST /api/imports/questions/preview` - Validate an export and return a read-only content summary
 - `POST /api/imports/questions` - Validate and atomically merge a versioned export into the local database
+- `GET /api/question-library?query=&page=0&size=25` - Search and page through canonical questions
 
 ### Navigation API 
 - `POST /api/navigation/start` - Start the navigation process
