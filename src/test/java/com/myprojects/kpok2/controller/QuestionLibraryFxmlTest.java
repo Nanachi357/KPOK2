@@ -28,6 +28,12 @@ class QuestionLibraryFxmlTest {
                 "question.library.loading",
                 "question.library.no.results")
                 .forEach(key -> assertNotNull(messages.getString(key)));
+        List.of(
+                "question.library.detail.title",
+                "question.library.detail.prompt",
+                "question.library.detail.revisions",
+                "question.library.detail.keys")
+                .forEach(key -> assertNotNull(messages.getString(key)));
 
         try (var stream = getClass().getResourceAsStream(
                 "/fxml/question-library.fxml")) {

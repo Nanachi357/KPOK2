@@ -2,10 +2,12 @@ package com.myprojects.kpok2.controller;
 
 import com.myprojects.kpok2.model.QuestionType;
 import com.myprojects.kpok2.model.dto.QuestionLibraryFilter;
+import com.myprojects.kpok2.model.dto.QuestionLibraryDetailDto;
 import com.myprojects.kpok2.model.dto.QuestionLibraryItemDto;
 import com.myprojects.kpok2.model.dto.QuestionLibraryPageDto;
 import com.myprojects.kpok2.model.dto.export.QuestionExportOptionsDto;
 import com.myprojects.kpok2.service.QuestionExportService;
+import com.myprojects.kpok2.service.QuestionLibraryDetailService;
 import com.myprojects.kpok2.service.QuestionLibraryService;
 import javafx.collections.FXCollections;
 import javafx.beans.property.ReadOnlyIntegerWrapper;
@@ -22,6 +24,7 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.ListCell;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
@@ -30,6 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.text.MessageFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +50,9 @@ public class QuestionLibraryDialogController {
 
     private final QuestionLibraryService questionLibraryService;
     private final QuestionExportService questionExportService;
+    private final QuestionLibraryDetailService questionLibraryDetailService;
     private final AtomicLong requestSequence = new AtomicLong();
+    private final AtomicLong detailRequestSequence = new AtomicLong();
 
     @FXML
     private ResourceBundle resources;
@@ -85,6 +92,10 @@ public class QuestionLibraryDialogController {
     private Label resultLabel;
     @FXML
     private ProgressIndicator loadingIndicator;
+    @FXML
+    private ProgressIndicator detailLoadingIndicator;
+    @FXML
+    private TextArea detailArea;
 
     private Stage stage;
     private QuestionLibraryPageDto currentPage;
@@ -115,6 +126,10 @@ public class QuestionLibraryDialogController {
         configureWrappingCell(contextColumn);
         configureWrappingCell(questionColumn);
         questionsTable.setPlaceholder(new Label(text("question.library.no.results")));
+        questionsTable.getSelectionModel().selectedItemProperty().addListener(
+                (observable, oldValue, selected) -> onQuestionSelected(selected));
+        detailArea.setText(text("question.library.detail.prompt"));
+        setDetailLoading(false);
 
         configureComboBox(quizComboBox);
         configureComboBox(languageComboBox);
@@ -177,6 +192,7 @@ public class QuestionLibraryDialogController {
                 return;
             }
             currentPage = task.getValue();
+            clearDetail();
             questionsTable.getItems().setAll(currentPage.items());
             updatePageSummary();
             setLoading(false);
@@ -196,6 +212,166 @@ public class QuestionLibraryDialogController {
         Thread worker = new Thread(task, "question-library-page-loader");
         worker.setDaemon(true);
         worker.start();
+    }
+
+    private void onQuestionSelected(QuestionLibraryItemDto selected) {
+        if (selected == null) {
+            clearDetail();
+            return;
+        }
+        loadDetail(selected.questionId());
+    }
+
+    private void loadDetail(Long questionId) {
+        long requestId = detailRequestSequence.incrementAndGet();
+        detailArea.setText(text("question.library.detail.loading"));
+        setDetailLoading(true);
+
+        Task<QuestionLibraryDetailDto> task = new Task<>() {
+            @Override
+            protected QuestionLibraryDetailDto call() {
+                return questionLibraryDetailService.findByQuestionId(questionId)
+                        .orElseThrow(() -> new IllegalStateException(
+                                text("question.library.detail.not.found")));
+            }
+        };
+        task.setOnSucceeded(event -> {
+            if (detailRequestSequence.get() != requestId) {
+                return;
+            }
+            detailArea.setText(formatDetail(task.getValue()));
+            detailArea.positionCaret(0);
+            setDetailLoading(false);
+        });
+        task.setOnFailed(event -> {
+            if (detailRequestSequence.get() != requestId) {
+                return;
+            }
+            Throwable failure = task.getException();
+            log.error("Could not load question-library detail", failure);
+            detailArea.setText(format(
+                    "question.library.detail.failed",
+                    failure == null ? "" : safe(failure.getMessage())));
+            setDetailLoading(false);
+        });
+        Thread worker = new Thread(task, "question-library-detail-loader");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private void clearDetail() {
+        detailRequestSequence.incrementAndGet();
+        setDetailLoading(false);
+        detailArea.setText(text("question.library.detail.prompt"));
+    }
+
+    private void setDetailLoading(boolean loading) {
+        detailLoadingIndicator.setVisible(loading);
+        detailLoadingIndicator.setManaged(loading);
+    }
+
+    private String formatDetail(QuestionLibraryDetailDto detail) {
+        StringBuilder value = new StringBuilder();
+        value.append(format("question.library.detail.header", detail.questionId()))
+                .append('\n');
+        value.append(text("question.library.detail.type"))
+                .append(": ")
+                .append(formatType(detail.questionType()))
+                .append('\n');
+        value.append(text("question.library.detail.hash"))
+                .append(": ")
+                .append(safe(detail.questionHash()))
+                .append("\n\n");
+        appendTextSection(
+                value,
+                text("question.library.detail.context"),
+                detail.contextText());
+        appendTextSection(
+                value,
+                text("question.library.detail.question"),
+                detail.questionText());
+
+        value.append(text("question.library.detail.origins"))
+                .append(" (")
+                .append(detail.origins().size())
+                .append(")\n");
+        if (detail.origins().isEmpty()) {
+            value.append("  —\n");
+        }
+        for (QuestionLibraryDetailDto.Origin origin : detail.origins()) {
+            value.append("  • ")
+                    .append(format(
+                            "question.library.detail.origin",
+                            origin.quizId(),
+                            safe(origin.language()).toUpperCase(Locale.ROOT),
+                            formatDate(origin.firstSeenAt()),
+                            formatDate(origin.lastSeenAt())))
+                    .append('\n');
+            if (!safe(origin.quizUrl()).isBlank()) {
+                value.append("    ").append(origin.quizUrl()).append('\n');
+            }
+        }
+
+        value.append('\n')
+                .append(text("question.library.detail.revisions"))
+                .append(" (")
+                .append(detail.revisions().size())
+                .append(")\n");
+        for (QuestionLibraryDetailDto.Revision revision : detail.revisions()) {
+            value.append("\n")
+                    .append(format(
+                            "question.library.detail.revision",
+                            revision.revisionId(),
+                            formatType(revision.questionType()),
+                            formatDate(revision.firstSeenAt()),
+                            formatDate(revision.lastSeenAt())))
+                    .append('\n');
+            if (revision.answerKeyConflict()) {
+                value.append(text("question.library.detail.conflict")).append('\n');
+            }
+            appendTextSection(
+                    value,
+                    text("question.library.detail.context"),
+                    revision.contextText());
+            appendTextSection(
+                    value,
+                    text("question.library.detail.question"),
+                    revision.questionText());
+            value.append(text("question.library.detail.answers")).append("\n");
+            for (int index = 0; index < revision.answers().size(); index++) {
+                value.append("  ")
+                        .append(index + 1)
+                        .append(". ")
+                        .append(revision.answers().get(index))
+                        .append('\n');
+            }
+            value.append(text("question.library.detail.keys")).append("\n");
+            for (QuestionLibraryDetailDto.AnswerKey key : revision.answerKeys()) {
+                value.append("  • ")
+                        .append(format(
+                                "question.library.detail.key",
+                                key.answerKeyId(),
+                                String.join(" | ", key.correctAnswers()),
+                                formatDate(key.firstSeenAt()),
+                                formatDate(key.lastSeenAt())))
+                        .append('\n');
+            }
+        }
+        return value.toString().stripTrailing();
+    }
+
+    private void appendTextSection(StringBuilder target, String title, String content) {
+        if (content == null || content.isBlank()) {
+            return;
+        }
+        target.append(title).append("\n")
+                .append(content.strip()).append("\n\n");
+    }
+
+    private String formatDate(LocalDateTime value) {
+        return value == null
+                ? "—"
+                : DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(value);
     }
 
     private void initializeEmptyFilterOptions() {
@@ -340,9 +516,13 @@ public class QuestionLibraryDialogController {
     }
 
     private String formatType(QuestionLibraryItemDto item) {
-        return item.questionType() == null
+        return formatType(item.questionType());
+    }
+
+    private String formatType(QuestionType questionType) {
+        return questionType == null
                 ? "—"
-                : item.questionType().name()
+                : questionType.name()
                         .toLowerCase(Locale.ROOT)
                         .replace('_', ' ');
     }

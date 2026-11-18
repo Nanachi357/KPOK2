@@ -35,17 +35,31 @@
                   text="%question.library.filter.conflicts"/>
     </HBox>
 
-    <TableView fx:id="questionsTable" VBox.vgrow="ALWAYS">
-        <columns>
-            <TableColumn fx:id="idColumn" text="%question.library.column.id" prefWidth="70"/>
-            <TableColumn fx:id="contextColumn" text="%question.library.column.context" prefWidth="230"/>
-            <TableColumn fx:id="questionColumn" text="%question.library.column.question" prefWidth="400"/>
-            <TableColumn fx:id="typeColumn" text="%question.library.column.type" prefWidth="120"/>
-            <TableColumn fx:id="revisionsColumn" text="%question.library.column.revisions" prefWidth="90"/>
-            <TableColumn fx:id="keysColumn" text="%question.library.column.keys" prefWidth="90"/>
-            <TableColumn fx:id="conflictColumn" text="%question.library.column.conflict" prefWidth="90"/>
-        </columns>
-    </TableView>
+    <SplitPane orientation="VERTICAL" dividerPositions="0.62" VBox.vgrow="ALWAYS">
+        <items>
+            <TableView fx:id="questionsTable">
+                <columns>
+                    <TableColumn fx:id="idColumn" text="%question.library.column.id" prefWidth="70"/>
+                    <TableColumn fx:id="contextColumn" text="%question.library.column.context" prefWidth="230"/>
+                    <TableColumn fx:id="questionColumn" text="%question.library.column.question" prefWidth="400"/>
+                    <TableColumn fx:id="typeColumn" text="%question.library.column.type" prefWidth="120"/>
+                    <TableColumn fx:id="revisionsColumn" text="%question.library.column.revisions" prefWidth="90"/>
+                    <TableColumn fx:id="keysColumn" text="%question.library.column.keys" prefWidth="90"/>
+                    <TableColumn fx:id="conflictColumn" text="%question.library.column.conflict" prefWidth="90"/>
+                </columns>
+            </TableView>
+            <VBox spacing="6">
+                <HBox spacing="8" alignment="CENTER_LEFT">
+                    <Label text="%question.library.detail.title"
+                           style="-fx-font-weight: bold;"/>
+                    <ProgressIndicator fx:id="detailLoadingIndicator"
+                                       prefHeight="20" prefWidth="20"/>
+                </HBox>
+                <TextArea fx:id="detailArea" editable="false" wrapText="true"
+                          VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </items>
+    </SplitPane>
 
     <HBox spacing="10" alignment="CENTER_LEFT">
         <Button fx:id="previousButton" text="%question.library.previous"
