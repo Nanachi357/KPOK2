@@ -1,27 +1,38 @@
 package com.myprojects.kpok2.controller;
 
+import com.myprojects.kpok2.model.QuestionType;
+import com.myprojects.kpok2.model.dto.QuestionLibraryFilter;
 import com.myprojects.kpok2.model.dto.QuestionLibraryItemDto;
 import com.myprojects.kpok2.model.dto.QuestionLibraryPageDto;
+import com.myprojects.kpok2.model.dto.export.QuestionExportOptionsDto;
+import com.myprojects.kpok2.service.QuestionExportService;
 import com.myprojects.kpok2.service.QuestionLibraryService;
+import javafx.collections.FXCollections;
 import javafx.beans.property.ReadOnlyIntegerWrapper;
 import javafx.beans.property.ReadOnlyLongWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ListCell;
 import javafx.stage.Stage;
+import javafx.util.StringConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.text.MessageFormat;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -33,12 +44,21 @@ public class QuestionLibraryDialogController {
     private static final int PAGE_SIZE = QuestionLibraryService.DEFAULT_PAGE_SIZE;
 
     private final QuestionLibraryService questionLibraryService;
+    private final QuestionExportService questionExportService;
     private final AtomicLong requestSequence = new AtomicLong();
 
     @FXML
     private ResourceBundle resources;
     @FXML
     private TextField searchField;
+    @FXML
+    private ComboBox<SelectionOption<Long>> quizComboBox;
+    @FXML
+    private ComboBox<SelectionOption<String>> languageComboBox;
+    @FXML
+    private ComboBox<SelectionOption<QuestionType>> questionTypeComboBox;
+    @FXML
+    private CheckBox conflictsOnlyCheckBox;
     @FXML
     private TableView<QuestionLibraryItemDto> questionsTable;
     @FXML
@@ -96,6 +116,11 @@ public class QuestionLibraryDialogController {
         configureWrappingCell(questionColumn);
         questionsTable.setPlaceholder(new Label(text("question.library.no.results")));
 
+        configureComboBox(quizComboBox);
+        configureComboBox(languageComboBox);
+        configureComboBox(questionTypeComboBox);
+        initializeEmptyFilterOptions();
+        loadFilterOptions();
         loadPage(0);
     }
 
@@ -107,6 +132,10 @@ public class QuestionLibraryDialogController {
     @FXML
     public void onClearClick() {
         searchField.clear();
+        quizComboBox.getSelectionModel().selectFirst();
+        languageComboBox.getSelectionModel().selectFirst();
+        questionTypeComboBox.getSelectionModel().selectFirst();
+        conflictsOnlyCheckBox.setSelected(false);
         loadPage(0);
     }
 
@@ -133,14 +162,14 @@ public class QuestionLibraryDialogController {
 
     private void loadPage(int pageNumber) {
         long requestId = requestSequence.incrementAndGet();
-        String query = searchField.getText();
+        QuestionLibraryFilter filter = selectedFilter();
         setLoading(true);
         resultLabel.setText(text("question.library.loading"));
 
         Task<QuestionLibraryPageDto> task = new Task<>() {
             @Override
             protected QuestionLibraryPageDto call() {
-                return questionLibraryService.findPage(query, pageNumber, PAGE_SIZE);
+                return questionLibraryService.findPage(filter, pageNumber, PAGE_SIZE);
             }
         };
         task.setOnSucceeded(event -> {
@@ -167,6 +196,96 @@ public class QuestionLibraryDialogController {
         Thread worker = new Thread(task, "question-library-page-loader");
         worker.setDaemon(true);
         worker.start();
+    }
+
+    private void initializeEmptyFilterOptions() {
+        quizComboBox.setItems(FXCollections.observableArrayList(
+                new SelectionOption<>(null, text("question.library.filter.all.quizzes"))));
+        languageComboBox.setItems(FXCollections.observableArrayList(
+                new SelectionOption<>(null, text("question.library.filter.all.languages"))));
+        questionTypeComboBox.setItems(FXCollections.observableArrayList(
+                new SelectionOption<>(null, text("question.library.filter.all.types"))));
+        quizComboBox.getSelectionModel().selectFirst();
+        languageComboBox.getSelectionModel().selectFirst();
+        questionTypeComboBox.getSelectionModel().selectFirst();
+    }
+
+    private void loadFilterOptions() {
+        Task<QuestionExportOptionsDto> task = new Task<>() {
+            @Override
+            protected QuestionExportOptionsDto call() {
+                return questionExportService.getOptions();
+            }
+        };
+        task.setOnSucceeded(event -> applyFilterOptions(task.getValue()));
+        task.setOnFailed(event -> log.warn(
+                "Could not load question-library filter options",
+                task.getException()));
+        Thread worker = new Thread(task, "question-library-filter-loader");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private void applyFilterOptions(QuestionExportOptionsDto options) {
+        List<SelectionOption<Long>> quizzes = new ArrayList<>();
+        quizzes.add(new SelectionOption<>(
+                null, text("question.library.filter.all.quizzes")));
+        options.quizzes().forEach(quiz -> quizzes.add(new SelectionOption<>(
+                quiz.quizId(), quiz.displayName())));
+        quizComboBox.setItems(FXCollections.observableArrayList(quizzes));
+        quizComboBox.getSelectionModel().selectFirst();
+
+        List<SelectionOption<String>> languages = new ArrayList<>();
+        languages.add(new SelectionOption<>(
+                null, text("question.library.filter.all.languages")));
+        options.languages().forEach(language -> languages.add(new SelectionOption<>(
+                language, language.toUpperCase(Locale.ROOT))));
+        languageComboBox.setItems(FXCollections.observableArrayList(languages));
+        languageComboBox.getSelectionModel().selectFirst();
+
+        List<SelectionOption<QuestionType>> types = new ArrayList<>();
+        types.add(new SelectionOption<>(
+                null, text("question.library.filter.all.types")));
+        options.questionTypes().forEach(type -> types.add(new SelectionOption<>(
+                type,
+                type.name().toLowerCase(Locale.ROOT).replace('_', ' '))));
+        questionTypeComboBox.setItems(FXCollections.observableArrayList(types));
+        questionTypeComboBox.getSelectionModel().selectFirst();
+    }
+
+    private QuestionLibraryFilter selectedFilter() {
+        return new QuestionLibraryFilter(
+                searchField.getText(),
+                selectedValue(quizComboBox),
+                selectedValue(languageComboBox),
+                selectedValue(questionTypeComboBox),
+                conflictsOnlyCheckBox.isSelected());
+    }
+
+    private <T> T selectedValue(ComboBox<SelectionOption<T>> comboBox) {
+        SelectionOption<T> selected = comboBox.getValue();
+        return selected == null ? null : selected.value();
+    }
+
+    private <T> void configureComboBox(ComboBox<SelectionOption<T>> comboBox) {
+        comboBox.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(SelectionOption<T> option) {
+                return option == null ? "" : option.label();
+            }
+
+            @Override
+            public SelectionOption<T> fromString(String value) {
+                return null;
+            }
+        });
+        comboBox.setCellFactory(ignored -> new ListCell<>() {
+            @Override
+            protected void updateItem(SelectionOption<T> option, boolean empty) {
+                super.updateItem(option, empty);
+                setText(empty || option == null ? null : option.label());
+            }
+        });
     }
 
     private void updatePageSummary() {
@@ -238,5 +357,8 @@ public class QuestionLibraryDialogController {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private record SelectionOption<T>(T value, String label) {
     }
 }

@@ -24,6 +24,17 @@
         <Button text="%question.library.clear" onAction="#onClearClick"/>
     </HBox>
 
+    <HBox spacing="8" alignment="CENTER_LEFT">
+        <Label text="%question.library.filter.quiz"/>
+        <ComboBox fx:id="quizComboBox" prefWidth="290"/>
+        <Label text="%question.library.filter.language"/>
+        <ComboBox fx:id="languageComboBox" prefWidth="110"/>
+        <Label text="%question.library.filter.type"/>
+        <ComboBox fx:id="questionTypeComboBox" prefWidth="170"/>
+        <CheckBox fx:id="conflictsOnlyCheckBox"
+                  text="%question.library.filter.conflicts"/>
+    </HBox>
+
     <TableView fx:id="questionsTable" VBox.vgrow="ALWAYS">
         <columns>
             <TableColumn fx:id="idColumn" text="%question.library.column.id" prefWidth="70"/>

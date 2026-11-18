@@ -212,7 +212,7 @@ The application provides a graphical user interface (JavaFX) with the following 
 
 ### Main Window
 - Start, graceful stop-after-current, and confirmed emergency-stop controls with live status
-- Non-blocking question library with full-text search, canonical rows, and 25-item pages
+- Non-blocking question library with full-text search, quiz/language/type/conflict filters, canonical rows, and 25-item pages
 - Log display for real-time monitoring
 - Filtered, background JSON export with revision and attempt history
 - Preview-first, background JSON import with an explicit confirmation step
