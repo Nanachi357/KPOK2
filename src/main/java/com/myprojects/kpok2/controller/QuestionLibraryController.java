@@ -2,7 +2,9 @@ package com.myprojects.kpok2.controller;
 
 import com.myprojects.kpok2.model.dto.QuestionLibraryPageDto;
 import com.myprojects.kpok2.model.dto.QuestionLibraryFilter;
+import com.myprojects.kpok2.model.dto.QuestionLibraryDetailDto;
 import com.myprojects.kpok2.model.QuestionType;
+import com.myprojects.kpok2.service.QuestionLibraryDetailService;
 import com.myprojects.kpok2.service.QuestionLibraryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class QuestionLibraryController {
     private final QuestionLibraryService questionLibraryService;
+    private final QuestionLibraryDetailService questionLibraryDetailService;
 
     @GetMapping
     public ResponseEntity<QuestionLibraryPageDto> findQuestions(
@@ -31,5 +34,13 @@ public class QuestionLibraryController {
                         query, quizId, language, questionType, conflictsOnly),
                 page,
                 size));
+    }
+
+    @GetMapping("/{questionId}")
+    public ResponseEntity<QuestionLibraryDetailDto> findQuestion(
+            @org.springframework.web.bind.annotation.PathVariable Long questionId) {
+        return questionLibraryDetailService.findByQuestionId(questionId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
