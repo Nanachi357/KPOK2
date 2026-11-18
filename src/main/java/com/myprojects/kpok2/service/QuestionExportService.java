@@ -487,13 +487,18 @@ public class QuestionExportService {
         }
         String needle = query.toLowerCase(Locale.ROOT);
         List<String> values = new ArrayList<>();
+        values.add(question.getQuestionHash());
         values.add(question.getQuestionText());
         values.add(question.getContextText());
+        values.add(revision.getRevisionHash());
         values.add(revision.getQuestionText());
         values.add(revision.getContextText());
         values.addAll(jsonConverter.getAnswersFromJson(
                 revision.getPossibleAnswersJson()));
-        keys.forEach(key -> values.addAll(key.correctAnswers()));
+        keys.forEach(key -> {
+            values.add(key.keyHash());
+            values.addAll(key.correctAnswers());
+        });
         assets.forEach(asset -> {
             values.add(asset.altText());
             values.add(asset.sourceUrl());

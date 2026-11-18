@@ -34,13 +34,15 @@ public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long
             LEFT JOIN question_revisions r ON r.question_id = q.id
             LEFT JOIN answer_keys k ON k.revision_id = r.id
             WHERE (:searchText = ''
-               OR LOWER(COALESCE(q.question_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(COALESCE(q.context_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(COALESCE(q.question_hash, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(COALESCE(r.question_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(COALESCE(r.context_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(CAST(r.possible_answers_json AS TEXT)) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(CAST(k.correct_answers_json AS TEXT)) LIKE LOWER(CONCAT('%', :searchText, '%'))
+               OR STRPOS(LOWER(COALESCE(q.question_text, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(q.context_text, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(q.question_hash, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(r.question_text, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(r.context_text, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(r.revision_hash, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(k.key_hash, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(CAST(r.possible_answers_json AS TEXT)), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(CAST(k.correct_answers_json AS TEXT)), LOWER(:searchText)) > 0
             )
               AND ((:quizId IS NULL AND :language = '') OR EXISTS (
                     SELECT 1
@@ -72,13 +74,15 @@ public interface TestQuestionRepository extends JpaRepository<TestQuestion, Long
             LEFT JOIN question_revisions r ON r.question_id = q.id
             LEFT JOIN answer_keys k ON k.revision_id = r.id
             WHERE (:searchText = ''
-               OR LOWER(COALESCE(q.question_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(COALESCE(q.context_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(COALESCE(q.question_hash, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(COALESCE(r.question_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(COALESCE(r.context_text, '')) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(CAST(r.possible_answers_json AS TEXT)) LIKE LOWER(CONCAT('%', :searchText, '%'))
-               OR LOWER(CAST(k.correct_answers_json AS TEXT)) LIKE LOWER(CONCAT('%', :searchText, '%'))
+               OR STRPOS(LOWER(COALESCE(q.question_text, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(q.context_text, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(q.question_hash, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(r.question_text, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(r.context_text, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(r.revision_hash, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(COALESCE(k.key_hash, '')), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(CAST(r.possible_answers_json AS TEXT)), LOWER(:searchText)) > 0
+               OR STRPOS(LOWER(CAST(k.correct_answers_json AS TEXT)), LOWER(:searchText)) > 0
             )
               AND ((:quizId IS NULL AND :language = '') OR EXISTS (
                     SELECT 1

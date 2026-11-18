@@ -161,10 +161,26 @@ class RichContentPostgresIntegrationTest {
                 QuestionType.SINGLE_CHOICE.name(),
                 true,
                 PageRequest.of(0, 10));
+        var literalWildcard = questionRepository.findLibraryPage(
+                "%_",
+                quizId,
+                "uk",
+                QuestionType.SINGLE_CHOICE.name(),
+                true,
+                PageRequest.of(0, 10));
+        var revisionHash = questionRepository.findLibraryPage(
+                unique,
+                quizId,
+                "uk",
+                QuestionType.SINGLE_CHOICE.name(),
+                true,
+                PageRequest.of(0, 10));
 
         assertEquals(1, page.getTotalElements());
         assertEquals(question.getId(), page.getContent().get(0).getId());
         assertTrue(wrongLanguage.isEmpty());
+        assertTrue(literalWildcard.isEmpty());
+        assertEquals(question.getId(), revisionHash.getContent().get(0).getId());
     }
 
     @Test

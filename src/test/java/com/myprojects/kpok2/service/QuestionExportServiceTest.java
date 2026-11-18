@@ -103,6 +103,25 @@ class QuestionExportServiceTest {
     }
 
     @Test
+    void queryMatchesCanonicalRevisionAndAnswerKeyHashes() {
+        Fixture fixture = fixture();
+        fixture.stubCompleteQuestion();
+
+        for (String hash : List.of(
+                "question-hash", "revision-hash", "first-key")) {
+            QuestionExportDocument document = fixture.service.buildExport(
+                    new QuestionExportFilter(
+                            Set.of(),
+                            Set.of(),
+                            Set.of(),
+                            false,
+                            false,
+                            hash));
+            assertEquals(1, document.questions().size(), hash);
+        }
+    }
+
+    @Test
     void writesValidPrettyJsonWithoutEmbeddingAssetBinary() throws Exception {
         Fixture fixture = fixture();
         fixture.stubCompleteQuestion();
