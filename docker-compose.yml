@@ -11,6 +11,7 @@ services:
       # Listen on the container network; the published port remains host-local.
       SERVER_ADDRESS: 0.0.0.0
       KPOK2_API_TOKEN: ${KPOK2_API_TOKEN:-}
+      KPOK2_API_IMPORT_MAX_BYTES: ${KPOK2_API_IMPORT_MAX_BYTES:-26214400}
     ports:
       - "127.0.0.1:8080:8080"
 

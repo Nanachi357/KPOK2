@@ -22,5 +22,7 @@ class DefaultNetworkBindingTest {
         assertEquals("${SERVER_ADDRESS:127.0.0.1}", properties.getProperty("server.address"));
         assertEquals("${KPOK2_API_TOKEN:}",
                 properties.getProperty("app.api.security.token"));
+        assertEquals("${KPOK2_API_IMPORT_MAX_BYTES:26214400}",
+                properties.getProperty("app.api.import.max-bytes"));
     }
 }

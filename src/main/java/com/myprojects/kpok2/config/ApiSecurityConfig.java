@@ -11,13 +11,17 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
 @Slf4j
-@EnableConfigurationProperties(ApiSecurityProperties.class)
+@EnableConfigurationProperties({
+        ApiSecurityProperties.class,
+        ApiImportProperties.class
+})
 public class ApiSecurityConfig {
     private static final int MINIMUM_TOKEN_LENGTH = 32;
     private final ApiSecurityProperties properties;
@@ -37,9 +41,16 @@ public class ApiSecurityConfig {
     }
 
     @Bean
+    ApiImportPayloadLimitFilter apiImportPayloadLimitFilter(
+            ApiImportProperties importProperties) {
+        return new ApiImportPayloadLimitFilter(importProperties.getMaxBytes());
+    }
+
+    @Bean
     SecurityFilterChain apiSecurityFilterChain(
             HttpSecurity http,
-            ApiTokenAuthenticationFilter apiTokenAuthenticationFilter) throws Exception {
+            ApiTokenAuthenticationFilter apiTokenAuthenticationFilter,
+            ApiImportPayloadLimitFilter apiImportPayloadLimitFilter) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .requestCache(cache -> cache.disable())
@@ -54,6 +65,7 @@ public class ApiSecurityConfig {
                 .addFilterBefore(
                         apiTokenAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(apiImportPayloadLimitFilter, AuthorizationFilter.class)
                 .build();
     }
 }
