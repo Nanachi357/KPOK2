@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -28,9 +29,15 @@ public class WebDriverFactory {
     // Map to store WebDriver instances by thread ID
     private final Map<Long, WebDriver> driverMap = new ConcurrentHashMap<>();
     private final Map<WebDriver, Path> profilePaths = new ConcurrentHashMap<>();
+    private final boolean headlessByDefault;
     
     // ThreadLocal to track current thread's WebDriver
     private final ThreadLocal<WebDriver> currentDriver = new ThreadLocal<>();
+
+    public WebDriverFactory(
+            @Value("${app.browser.headless:true}") boolean headlessByDefault) {
+        this.headlessByDefault = headlessByDefault;
+    }
     
     /**
      * Get a WebDriver instance for the current thread.
@@ -127,24 +134,12 @@ public class WebDriverFactory {
      * @return New WebDriver instance
      */
     private WebDriver createWebDriver() {
-        return createWebDriver(false);
+        return createWebDriver(headlessByDefault);
     }
 
     private WebDriver createWebDriver(boolean headless) {
-        ChromeOptions options = new ChromeOptions();
-        
-        // Configure Chrome for optimal automation
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
-        if (headless) {
-            options.addArguments("--headless=new");
-            options.addArguments("--window-size=1920,1080");
-        }
-        
-        // Disable images and CSS to improve performance (optional)
-        // options.addArguments("--disable-images");
-        
+        ChromeOptions options = createChromeOptions(headless);
+
         // Each browser gets a fresh profile. A thread-based path alone can be
         // left locked after a browser crash and block later application runs.
         Path profilePath = createProfilePath(
@@ -155,11 +150,24 @@ public class WebDriverFactory {
             WebDriver driver = new ChromeDriver(options);
             profilePaths.put(driver, profilePath);
             driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
+            log.info("Started {} Chrome session", headless ? "headless" : "visible");
             return driver;
         } catch (RuntimeException e) {
             deleteProfileDirectory(profilePath);
             throw e;
         }
+    }
+
+    static ChromeOptions createChromeOptions(boolean headless) {
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");
+        if (headless) {
+            options.addArguments("--headless=new");
+            options.addArguments("--window-size=1920,1080");
+        }
+        return options;
     }
 
     static Path createProfilePath(long threadId, boolean headless, String uniqueId) {

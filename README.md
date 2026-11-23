@@ -70,6 +70,7 @@ This repository contains the application source code only; it does not publish a
    - The authenticated TestCenter catalog can be refreshed and searched from Navigation Settings
    - The last successful catalog is cached locally for later selection
    - The system navigates available practice sessions via Selenium
+   - Collection browsers run headless by default; set `KPOK2_BROWSER_HEADLESS=false` only for interactive troubleshooting
    - Locates Moodle controls by structure and URL instead of translated button captions
    - Prefers Moodle's `showall=1` review and falls back to the pagination links actually present
    - Processes single-choice, multiple-choice, and true/false items
