@@ -330,7 +330,13 @@ public class NavigationService {
                             }
                         }
                     } else {
-                        log.warn("{}: Iteration failed, will retry with new session", threadName);
+                        if (runControl.isImmediateStopRequested()) {
+                            log.info("{}: Iteration cancelled by immediate stop", threadName);
+                        } else if (runControl.isStopAfterCurrentRequested()) {
+                            log.info("{}: Reserved iteration ended before a new attempt started", threadName);
+                        } else {
+                            log.warn("{}: Iteration failed, will retry with new session", threadName);
+                        }
                         // Close the failed session and create a new one on next iteration
                         if (session != null) {
                             try {
@@ -365,7 +371,7 @@ public class NavigationService {
          */
         private boolean runOneIteration(NavigationSession session) {
             String username = session.getAccount().getUsername();
-            WebDriver driver = session.getWebDriver();
+            boolean attemptStarted = false;
             
             // Add iteration timeout tracking
             final long startTime = System.currentTimeMillis();
@@ -385,6 +391,10 @@ public class NavigationService {
             };
             
             try {
+                if (shouldAbortIteration(attemptStarted, username, "authentication")) {
+                    return false;
+                }
+
                 // Step 1: Authenticate
                 try {
                     boolean authSuccess = navigator.authenticate(session);
@@ -400,14 +410,12 @@ public class NavigationService {
                     log.error("{}: Authentication failed for account {}: {}", threadName, username, e.getMessage());
                     return false;
                 }
-                
-                try {
-                    // Short delay after authentication
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+
+                if (shouldAbortIteration(attemptStarted, username, "test page navigation")
+                        || !pauseBeforeNextStep(attemptStarted, username, "test page navigation")) {
+                    return false;
                 }
-                
+
                 // Check timeout before proceeding
                 if (isTimeoutExceeded.get()) return false;
                 
@@ -426,14 +434,12 @@ public class NavigationService {
                     log.error("{}: Navigation to test page failed for account {}: {}", threadName, username, e.getMessage());
                     return false;
                 }
-                
-                try {
-                    // Short delay after navigation to test page
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+
+                if (shouldAbortIteration(attemptStarted, username, "attempt selection")
+                        || !pauseBeforeNextStep(attemptStarted, username, "attempt selection")) {
+                    return false;
                 }
-                
+
                 // Check timeout before proceeding
                 if (isTimeoutExceeded.get()) return false;
                 
@@ -451,14 +457,15 @@ public class NavigationService {
                             threadName, username, e.getMessage());
                     return false;
                 }
-                
-                try {
-                    // Short delay after clicking test attempt button
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+
+                // Continuing an existing attempt means work is already active.
+                // A new attempt becomes active only after the preflight form is confirmed.
+                attemptStarted = attemptResult.isResumeAttempt();
+                if (shouldAbortIteration(attemptStarted, username, "attempt start")
+                        || !pauseBeforeNextStep(attemptStarted, username, "attempt start")) {
+                    return false;
                 }
-                
+
                 // Step 4: Click "Start Attempt" button - ONLY for new attempts, skip for resume attempts
                 if (!attemptResult.isResumeAttempt()) {
                     log.info("{}: New attempt detected, proceeding with 'Start Attempt' button click for account: {}", 
@@ -472,23 +479,27 @@ public class NavigationService {
                         }
                         log.info("{}: Click on 'Start Attempt' button successful for account: {}", 
                                 threadName, username);
+                        attemptStarted = true;
                     } catch (Exception e) {
                         log.error("{}: Error during 'Start Attempt' button click for account {}: {}", 
                                 threadName, username, e.getMessage());
                         return false;
                     }
-                    
-                    try {
-                        // Short delay after clicking "Start Attempt" button
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+
+                    if (shouldAbortIteration(attemptStarted, username, "attempt completion")
+                            || !pauseBeforeNextStep(
+                                    attemptStarted, username, "attempt completion")) {
+                        return false;
                     }
                 } else {
                     log.info("{}: Resume attempt detected, skipping 'Start Attempt' button click for account: {}", 
                             threadName, username);
                 }
-                
+
+                if (shouldAbortIteration(attemptStarted, username, "attempt completion")) {
+                    return false;
+                }
+
                 // Step 5: Click "Finish Attempt..." link
                 try {
                     boolean finishLinkSuccess = navigator.clickFinishAttemptLink(session);
@@ -504,14 +515,12 @@ public class NavigationService {
                             threadName, username, e.getMessage());
                     return false;
                 }
-                
-                try {
-                    // Short delay after clicking "Finish Attempt..." link
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+
+                if (shouldAbortIteration(attemptStarted, username, "attempt submission")
+                        || !pauseBeforeNextStep(attemptStarted, username, "attempt submission")) {
+                    return false;
                 }
-                
+
                 // Step 6: Click "Submit All and Finish" button
                 try {
                     boolean submitBtnSuccess = navigator.clickSubmitAllButton(session);
@@ -527,14 +536,13 @@ public class NavigationService {
                             threadName, username, e.getMessage());
                     return false;
                 }
-                
-                try {
-                    // Short delay after clicking "Submit All and Finish" button
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+
+                if (shouldAbortIteration(attemptStarted, username, "submission confirmation")
+                        || !pauseBeforeNextStep(
+                                attemptStarted, username, "submission confirmation")) {
+                    return false;
                 }
-                
+
                 // Step 7: Click confirmation "Submit All and Finish" button
                 try {
                     boolean confirmBtnSuccess = navigator.clickConfirmSubmitButton(session);
@@ -550,7 +558,11 @@ public class NavigationService {
                             threadName, username, e.getMessage());
                     return false;
                 }
-                
+
+                if (shouldAbortIteration(attemptStarted, username, "review collection")) {
+                    return false;
+                }
+
                 // Log only the final URL after completing all steps
                 log.info("{}: FINAL RESULT URL for account {}: {}", 
                         threadName, username, session.getCurrentUrl());
@@ -565,6 +577,9 @@ public class NavigationService {
                     log.warn("{}: Could not inspect review pagination, using the show-all URL: {}",
                             threadName, e.getMessage());
                     resultPageUrls = session.getResultPageUrls();
+                }
+                if (shouldAbortIteration(attemptStarted, username, "review parsing")) {
+                    return false;
                 }
                 if (resultPageUrls != null && !resultPageUrls.isEmpty()) {
                     log.info("{}: Found {} result page URLs to process for account: {}", 
@@ -592,9 +607,11 @@ public class NavigationService {
                 }
                 
                 log.info("{}: Successfully completed navigation for account: {}", threadName, username);
-                
-                // Keep the browser open for demonstration purposes
-                Thread.sleep(properties.getNavigation().getThreadTimeoutSeconds() * 1000L);
+
+                // Do not delay shutdown once a graceful stop has been requested.
+                if (!runControl.isStopAfterCurrentRequested()) {
+                    Thread.sleep(properties.getNavigation().getThreadTimeoutSeconds() * 1000L);
+                }
                 
                 return true;
             } catch (InterruptedException e) {
@@ -605,6 +622,38 @@ public class NavigationService {
                 log.error("{}: Unexpected error in navigation task: {}", threadName, e.getMessage(), e);
                 return false;
             }
+        }
+
+        private boolean pauseBeforeNextStep(
+                boolean attemptStarted, String username, String nextStep) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return !shouldAbortIteration(attemptStarted, username, nextStep);
+        }
+
+        private boolean shouldAbortIteration(
+                boolean attemptStarted, String username, String nextStep) {
+            if (runControl.isImmediateStopRequested()
+                    || Thread.currentThread().isInterrupted()) {
+                log.info(
+                        "{}: Immediate stop prevents {} for account: {}",
+                        threadName,
+                        nextStep,
+                        username);
+                return true;
+            }
+            if (!attemptStarted && runControl.isStopAfterCurrentRequested()) {
+                log.info(
+                        "{}: Graceful stop prevents starting a new attempt before {} for account: {}",
+                        threadName,
+                        nextStep,
+                        username);
+                return true;
+            }
+            return false;
         }
     }
 }
