@@ -7,7 +7,10 @@ import org.openqa.selenium.WebDriver;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 class NavigationSessionTest {
 
@@ -27,5 +30,28 @@ class NavigationSessionTest {
 
         assertEquals("2593848", session.getAttemptId());
         assertEquals(List.of(target.reviewUrl("2593848")), session.getResultPageUrls());
+    }
+
+    @Test
+    void closesBrowserBeforeReleasingAccountAndIsIdempotent() {
+        WebDriverFactory webDriverFactory = mock(WebDriverFactory.class);
+        AccountManager accountManager = mock(AccountManager.class);
+        WebDriver driver = mock(WebDriver.class);
+        AccountCredentials account = new AccountCredentials("student", "secret");
+        NavigationSession session = new NavigationSession(
+                webDriverFactory,
+                accountManager,
+                driver,
+                account,
+                QuizTarget.fromUrl(
+                        "https://test.testcentr.org.ua/mod/quiz/view.php?id=173"));
+
+        session.close();
+        session.close();
+
+        var ordered = inOrder(webDriverFactory, accountManager);
+        ordered.verify(webDriverFactory).closeDriver();
+        ordered.verify(accountManager).releaseAccount(account);
+        verify(webDriverFactory, times(1)).closeDriver();
     }
 }

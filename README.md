@@ -179,9 +179,10 @@ The application uses Spring Boot configuration properties. Main settings can be 
    - Thread configurations are managed through the UI via: TestCenter → Navigation Settings
    - Paste the full TestCenter quiz page URL, for example: `https://test.testcentr.org.ua/mod/quiz/view.php?id=173`
    - Configure the maximum number of parallel browser sessions (threads)
-   - Thread timeout is set to 2 seconds by default
+   - The effective worker count is capped by the number of enabled accounts, so one account is never leased to concurrent sessions
 
    The selected quiz is saved in the local application configuration. For an initial environment-based setup, you can also set `TESTCENTER_QUIZ_URL` to the same quiz page URL.
+   Account acquisition waits at most 10 seconds and a worker stops after three consecutive failures by default. Advanced deployments can override these bounds with `TESTCENTER_ACCOUNT_ACQUIRE_TIMEOUT_SECONDS`, `TESTCENTER_MAX_CONSECUTIVE_FAILURES`, and `TESTCENTER_FAILURE_RETRY_DELAY_SECONDS`.
 
 3. **Database Configuration**
    - Database settings are configured via application.properties

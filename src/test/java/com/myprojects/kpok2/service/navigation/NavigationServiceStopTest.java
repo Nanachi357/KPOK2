@@ -22,10 +22,40 @@ import static org.mockito.Mockito.after;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class NavigationServiceStopTest {
+
+    @Test
+    void refusesToStartWithoutEnabledAccounts() throws Exception {
+        Fixture fixture = new Fixture();
+        when(fixture.sessionFactory.getAccountCount()).thenReturn(0);
+
+        try {
+            assertFalse(fixture.service.startNavigation());
+            verify(fixture.sessionFactory, never()).createSession();
+        } finally {
+            fixture.service.shutdown();
+        }
+    }
+
+    @Test
+    void stopsWorkerAfterBoundedConsecutiveSessionFailures() throws Exception {
+        Fixture fixture = new Fixture();
+        when(fixture.sessionFactory.createSession())
+                .thenThrow(new IllegalStateException("browser unavailable"));
+
+        try {
+            assertTrue(fixture.service.startNavigation());
+            verify(fixture.sessionFactory, timeout(2_000).times(3)).createSession();
+            awaitStopped(fixture.service);
+            verify(fixture.sessionFactory, times(3)).createSession();
+        } finally {
+            fixture.service.shutdown();
+        }
+    }
 
     @Test
     void immediateStopAfterAuthenticationPreventsEveryLaterWebsiteAction() throws Exception {
@@ -191,10 +221,14 @@ class NavigationServiceStopTest {
                     "https://test.testcentr.org.ua/mod/quiz/view.php?id=173");
             when(properties.getNavigation()).thenReturn(navigationProperties);
             when(navigationProperties.getThreadTimeoutSeconds()).thenReturn(0);
+            when(navigationProperties.getMaxConsecutiveFailures()).thenReturn(3);
+            when(navigationProperties.getFailureRetryDelaySeconds()).thenReturn(0);
             when(accountService.getMaxThreads()).thenReturn(1);
             when(accountService.getIterationCount()).thenReturn(1);
             when(accountService.isReuseSession()).thenReturn(false);
             when(accountService.getQuizTarget()).thenReturn(target);
+            when(sessionFactory.refreshAccountPool()).thenReturn(true);
+            when(sessionFactory.getAccountCount()).thenReturn(1);
             when(sessionFactory.createSession()).thenReturn(session);
             when(session.getAccount()).thenReturn(new AccountCredentials("audit", "audit"));
             when(session.getWebDriver()).thenReturn(mock(WebDriver.class));

@@ -1,8 +1,7 @@
 package com.myprojects.kpok2.config;
 
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.ToString;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.ArrayList;
@@ -20,6 +19,7 @@ public class TestCenterProperties {
      * For backward compatibility - single credentials
      */
     private String username;
+    @ToString.Exclude
     private String password;
     
     /**
@@ -34,6 +34,7 @@ public class TestCenterProperties {
     @Data
     public static class AccountProperties {
         private String username;
+        @ToString.Exclude
         private String password;
         private boolean enabled = true;
     }
@@ -51,6 +52,15 @@ public class TestCenterProperties {
         
         // Thread timeout in seconds (browser stays open after navigation)
         private int threadTimeoutSeconds = 2;
+
+        // Maximum time a worker may wait for a busy account to be released
+        private int accountAcquireTimeoutSeconds = 10;
+
+        // Stop a broken worker instead of retrying the same failure forever
+        private int maxConsecutiveFailures = 3;
+
+        // Pause between recoverable failures to avoid a tight retry loop
+        private int failureRetryDelaySeconds = 5;
         
         // Whether to reuse browser sessions between iterations
         private boolean reuseSession = false;

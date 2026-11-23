@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.time.Duration;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Factory for creating navigation sessions.
@@ -44,39 +44,36 @@ public class NavigationSessionFactory {
      */
     @PostConstruct
     public void initializeAccountPool() {
+        refreshAccountPool();
+    }
+
+    /**
+     * Rebuilds the navigation pool from the latest saved account settings.
+     * A configured-but-disabled local account list intentionally produces an
+     * empty pool instead of silently falling back to legacy credentials.
+     */
+    public synchronized boolean refreshAccountPool() {
         log.info("Initializing account pool for navigation...");
-        
-        // First try to get accounts from the account service
-        List<AccountDTO> enabledAccounts = accountService.getAccounts().stream()
-                .filter(AccountDTO::isEnabled)
-                .collect(Collectors.toList());
-        
-        if (!enabledAccounts.isEmpty()) {
+
+        List<AccountDTO> configuredAccounts = List.copyOf(accountService.getAccounts());
+        List<AccountCredentials> poolAccounts;
+        if (!configuredAccounts.isEmpty()) {
+            poolAccounts = configuredAccounts.stream()
+                    .filter(AccountDTO::isEnabled)
+                    .map(account -> new AccountCredentials(
+                            account.getUsername(), account.getPassword()))
+                    .toList();
             log.info("Using accounts from account manager");
-            
-            // Add all active accounts to the pool
-            for (AccountDTO account : enabledAccounts) {
-                accountManager.addAccount(account.getUsername(), account.getPassword());
-                log.info("Added account to pool: {}", account.getUsername());
-            }
         } else {
-            // Fall back to TestCenterProperties accounts
-            var configAccounts = testCenterProperties.getEnabledAccounts();
-            
-            if (configAccounts.isEmpty()) {
-                log.warn("No TestCenter accounts found in configuration! Navigation will not work properly.");
-                return;
-            }
-            
+            poolAccounts = testCenterProperties.getEnabledAccounts().stream()
+                    .map(account -> new AccountCredentials(
+                            account.getUsername(), account.getPassword()))
+                    .toList();
             log.info("Using accounts from configuration properties");
-            
-            // Add all active accounts from config to the pool
-            for (var account : configAccounts) {
-                accountManager.addAccount(account.getUsername(), account.getPassword());
-                log.info("Added account to pool: {}", account.getUsername());
-            }
         }
-        
+
+        boolean applied = accountManager.replaceAccounts(poolAccounts);
+
         // Set navigation settings from account service if available
         int maxThreads = accountService.getMaxThreads();
         int threadTimeout = accountService.getThreadTimeout();
@@ -85,8 +82,16 @@ public class NavigationSessionFactory {
         testCenterProperties.getNavigation().setMaxThreads(maxThreads);
         testCenterProperties.getNavigation().setThreadTimeoutSeconds(threadTimeout);
         
+        if (accountManager.getAccountCount() == 0) {
+            log.warn("No enabled TestCenter accounts are configured");
+        }
         log.info("Account pool initialized with {} accounts", accountManager.getAccountCount());
         log.info("Navigation settings: maxThreads={}, threadTimeout={}s", maxThreads, threadTimeout);
+        return applied;
+    }
+
+    public int getAccountCount() {
+        return accountManager.getAccountCount();
     }
     
     /**
@@ -100,8 +105,21 @@ public class NavigationSessionFactory {
         // Resolve the selected quiz before reserving an account. A missing or
         // malformed URL therefore fails fast without leaking pooled resources.
         QuizTarget quizTarget = accountService.getQuizTarget();
-        AccountCredentials account = accountManager.acquireAccount();
-        WebDriver webDriver = webDriverFactory.getDriver();
+        int timeoutSeconds = Math.min(
+                300,
+                Math.max(
+                        1,
+                        testCenterProperties.getNavigation()
+                                .getAccountAcquireTimeoutSeconds()));
+        AccountCredentials account = accountManager.acquireAccount(
+                Duration.ofSeconds(timeoutSeconds));
+        WebDriver webDriver;
+        try {
+            webDriver = webDriverFactory.getDriver();
+        } catch (RuntimeException | Error e) {
+            accountManager.releaseAccount(account);
+            throw e;
+        }
         
         // Initialize the session with reusable properties
         NavigationSession session = new NavigationSession(

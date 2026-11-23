@@ -4,7 +4,6 @@ import com.myprojects.kpok2.service.AccountConfigurationService;
 import com.myprojects.kpok2.service.AccountConfigurationService.AccountDTO;
 import com.myprojects.kpok2.service.AccountConfigurationService.AccountValidationStatus;
 import com.myprojects.kpok2.service.catalog.QuizCatalogService;
-import com.myprojects.kpok2.service.navigation.AccountManager;
 import com.myprojects.kpok2.service.navigation.NavigationSessionFactory;
 import com.myprojects.kpok2.service.navigation.TestCenterNavigator.AuthenticationResult;
 import com.myprojects.kpok2.service.navigation.TestCenterNavigator.AuthenticationStatus;
@@ -67,7 +66,6 @@ public class AccountManagementController implements Initializable {
     private final AccountConfigurationService accountService;
     private final ApplicationContext applicationContext;
     private final NavigationSessionFactory navigationSessionFactory;
-    private final AccountManager accountManager;
     private final QuizCatalogService catalogService;
     
     @Autowired
@@ -75,12 +73,10 @@ public class AccountManagementController implements Initializable {
             AccountConfigurationService accountService,
             ApplicationContext applicationContext,
             NavigationSessionFactory navigationSessionFactory,
-            AccountManager accountManager,
             QuizCatalogService catalogService) {
         this.accountService = accountService;
         this.applicationContext = applicationContext;
         this.navigationSessionFactory = navigationSessionFactory;
-        this.accountManager = accountManager;
         this.catalogService = catalogService;
     }
     
@@ -384,11 +380,7 @@ public class AccountManagementController implements Initializable {
     private void refreshAccountPool() {
         log.info("Refreshing account pool after account changes");
         
-        // Clear existing account pool
-        accountManager.clearAccounts();
-        
-        // Reinitialize account pool from updated accounts
-        navigationSessionFactory.initializeAccountPool();
+        navigationSessionFactory.refreshAccountPool();
     }
     
     /**
@@ -510,20 +502,21 @@ public class AccountManagementController implements Initializable {
                     : passwordField.getText());
             account.setEnabled(enabledCheckBox.isSelected());
             
-            // Save account
-            if (editIndex >= 0) {
-                accountService.updateAccount(editIndex, account);
-            } else {
-                accountService.addAccount(account);
+            try {
+                if (editIndex >= 0) {
+                    accountService.updateAccount(editIndex, account);
+                } else {
+                    accountService.addAccount(account);
+                }
+
+                if (onSaveCallback != null) {
+                    onSaveCallback.run();
+                }
+
+                ((Stage) saveButton.getScene().getWindow()).close();
+            } catch (IllegalArgumentException e) {
+                showErrorAlert("Validation Error", e.getMessage());
             }
-            
-            // Execute callback to refresh account pool
-            if (onSaveCallback != null) {
-                onSaveCallback.run();
-            }
-            
-            // Close dialog
-            ((Stage) saveButton.getScene().getWindow()).close();
         }
         
         /**

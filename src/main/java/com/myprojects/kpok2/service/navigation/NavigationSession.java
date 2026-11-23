@@ -6,6 +6,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.WebDriver;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Represents a navigation session with its associated resources.
@@ -36,6 +37,7 @@ public class NavigationSession implements AutoCloseable {
     
     private final WebDriverFactory webDriverFactory;
     private final AccountManager accountManager;
+    private final AtomicBoolean closed = new AtomicBoolean();
     
     /**
      * Create a new navigation session with the specified resources
@@ -89,8 +91,14 @@ public class NavigationSession implements AutoCloseable {
      */
     @Override
     public void close() {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
         log.info("Closing navigation session for account: {}", account.getUsername());
-        accountManager.releaseAccount(account);
-        webDriverFactory.closeDriver();
+        try {
+            webDriverFactory.closeDriver();
+        } finally {
+            accountManager.releaseAccount(account);
+        }
     }
 }

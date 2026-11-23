@@ -46,11 +46,11 @@ public class NavigationService {
      * @return true if navigation has started successfully
      */
     public synchronized boolean startNavigation() {
-        int threadCount = accountService.getMaxThreads();
+        int configuredThreadCount = accountService.getMaxThreads();
         
         // Validate thread count
-        if (threadCount <= 0) {
-            log.error("Invalid thread count: {}", threadCount);
+        if (configuredThreadCount <= 0) {
+            log.error("Invalid thread count: {}", configuredThreadCount);
             return false;
         }
         
@@ -66,6 +66,20 @@ public class NavigationService {
             log.error("Cannot start navigation: {}. Open Navigation Settings and select a quiz URL.",
                     e.getMessage());
             return false;
+        }
+
+        sessionFactory.refreshAccountPool();
+        int accountCount = sessionFactory.getAccountCount();
+        if (accountCount == 0) {
+            log.error("Cannot start navigation: no enabled TestCenter accounts are configured");
+            return false;
+        }
+        int threadCount = Math.min(configuredThreadCount, accountCount);
+        if (threadCount < configuredThreadCount) {
+            log.info(
+                    "Reducing navigation workers from {} to {} to match enabled accounts",
+                    configuredThreadCount,
+                    threadCount);
         }
         
         log.info("Initializing navigation with {} threads", threadCount);
@@ -209,6 +223,7 @@ public class NavigationService {
             
             NavigationSession session = null;
             boolean reuseSession = accountService.isReuseSession();
+            int consecutiveFailures = 0;
             
             try {
                 // Main iteration loop. A shared reservation keeps parallel workers
@@ -223,8 +238,17 @@ public class NavigationService {
                                 log.info("{}: Created new navigation session with account: {}",
                                         threadName, session.getAccount().getUsername());
                             } catch (Exception e) {
-                                log.error("{}: Failed to create session: {}", threadName, e.getMessage());
-                                Thread.sleep(5000);
+                                consecutiveFailures++;
+                                log.error(
+                                        "{}: Failed to create session ({}/{}): {}",
+                                        threadName,
+                                        consecutiveFailures,
+                                        maxConsecutiveFailures(),
+                                        e.getMessage());
+                                if (failureLimitReached(consecutiveFailures)
+                                        || !pauseBeforeRetry()) {
+                                    break;
+                                }
                                 continue;
                             }
                         }
@@ -235,6 +259,7 @@ public class NavigationService {
                     }
                     
                     if (iterationSuccess) {
+                        consecutiveFailures = 0;
                         // Count this as a completed iteration
                         int completedCount = parsingStatistics.incrementCompletedIterations();
                         int totalNeeded = parsingStatistics.getTotalIterationsNeeded();
@@ -335,7 +360,12 @@ public class NavigationService {
                         } else if (runControl.isStopAfterCurrentRequested()) {
                             log.info("{}: Reserved iteration ended before a new attempt started", threadName);
                         } else {
-                            log.warn("{}: Iteration failed, will retry with new session", threadName);
+                            consecutiveFailures++;
+                            log.warn(
+                                    "{}: Iteration failed ({}/{}), will retry with a new session",
+                                    threadName,
+                                    consecutiveFailures,
+                                    maxConsecutiveFailures());
                         }
                         // Close the failed session and create a new one on next iteration
                         if (session != null) {
@@ -345,6 +375,12 @@ public class NavigationService {
                                 log.warn("{}: Error closing failed session: {}", threadName, e.getMessage());
                             }
                             session = null;
+                        }
+                        if (!runControl.isImmediateStopRequested()
+                                && !runControl.isStopAfterCurrentRequested()
+                                && (failureLimitReached(consecutiveFailures)
+                                || !pauseBeforeRetry())) {
+                            break;
                         }
                     }
                 }
@@ -632,6 +668,42 @@ public class NavigationService {
                 Thread.currentThread().interrupt();
             }
             return !shouldAbortIteration(attemptStarted, username, nextStep);
+        }
+
+        private int maxConsecutiveFailures() {
+            return Math.min(
+                    100,
+                    Math.max(
+                            1,
+                            properties.getNavigation().getMaxConsecutiveFailures()));
+        }
+
+        private boolean failureLimitReached(int consecutiveFailures) {
+            if (consecutiveFailures < maxConsecutiveFailures()) {
+                return false;
+            }
+            log.error(
+                    "{}: Stopping worker after {} consecutive failures",
+                    threadName,
+                    consecutiveFailures);
+            return true;
+        }
+
+        private boolean pauseBeforeRetry() {
+            long delaySeconds = Math.min(
+                    300,
+                    Math.max(
+                            0,
+                            properties.getNavigation().getFailureRetryDelaySeconds()));
+            try {
+                TimeUnit.SECONDS.sleep(delaySeconds);
+                return !Thread.currentThread().isInterrupted()
+                        && !runControl.isImmediateStopRequested()
+                        && !runControl.isStopAfterCurrentRequested();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
         }
 
         private boolean shouldAbortIteration(

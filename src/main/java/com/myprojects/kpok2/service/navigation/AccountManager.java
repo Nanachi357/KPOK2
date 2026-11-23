@@ -3,10 +3,14 @@ package com.myprojects.kpok2.service.navigation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.locks.Lock;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -16,45 +20,55 @@ import java.util.concurrent.locks.ReentrantLock;
 @Slf4j
 @Component
 public class AccountManager {
-    
+
     private final List<AccountCredentials> accountPool = new ArrayList<>();
-    private final Lock accountLock = new ReentrantLock();
-    
+    private final ReentrantLock accountLock = new ReentrantLock(true);
+    private final Condition accountAvailable = accountLock.newCondition();
+
     /**
      * Acquire an available account for the current thread.
-     * If no account is available, this method will block until one becomes available.
+     * If every configured account is busy, wait only for the supplied timeout.
      *
      * @return AccountCredentials for the assigned account
      * @throws InterruptedException if the thread is interrupted while waiting
      */
-    public AccountCredentials acquireAccount() throws InterruptedException {
-        accountLock.lock();
+    public AccountCredentials acquireAccount(Duration timeout) throws InterruptedException {
+        Objects.requireNonNull(timeout, "timeout");
+        if (timeout.isNegative()) {
+            throw new IllegalArgumentException("Account acquisition timeout cannot be negative");
+        }
+
+        long remainingNanos = timeout.toNanos();
+        accountLock.lockInterruptibly();
         try {
-            Optional<AccountCredentials> availableAccount;
             while (true) {
-                availableAccount = accountPool.stream()
-                        .filter(account -> !account.isInUse())
-                        .findFirst();
-                
-                if (availableAccount.isPresent()) {
-                    AccountCredentials account = availableAccount.get();
-                    account.setInUse(true);
-                    log.info("Account acquired: {}", account.getUsername());
-                    return account;
+                if (accountPool.isEmpty()) {
+                    throw new IllegalStateException(
+                            "No enabled TestCenter accounts are configured");
                 }
+
+                AccountCredentials availableAccount = accountPool.stream()
+                        .filter(account -> !account.isInUse())
+                        .findFirst()
+                        .orElse(null);
                 
-                // If no account is available, wait and try again
-                log.warn("No accounts available, waiting for release...");
-                // Release lock while waiting to avoid deadlock
-                accountLock.unlock();
-                Thread.sleep(1000);
-                accountLock.lock();
+                if (availableAccount != null) {
+                    availableAccount.setInUse(true);
+                    log.info("Account acquired: {}", availableAccount.getUsername());
+                    return availableAccount;
+                }
+
+                if (remainingNanos <= 0) {
+                    throw new IllegalStateException(
+                            "Timed out waiting for an available TestCenter account");
+                }
+                remainingNanos = accountAvailable.awaitNanos(remainingNanos);
             }
         } finally {
             accountLock.unlock();
         }
     }
-    
+
     /**
      * Release an account back to the pool.
      *
@@ -64,12 +78,13 @@ public class AccountManager {
         accountLock.lock();
         try {
             accountPool.stream()
-                    .filter(a -> a.getUsername().equals(account.getUsername()))
+                    .filter(candidate -> candidate == account)
                     .findFirst()
-                    .ifPresent(a -> {
-                        a.setInUse(false);
-                        log.info("Account released: {}", a.getUsername());
-                    });
+                    .ifPresentOrElse(candidate -> {
+                        candidate.setInUse(false);
+                        accountAvailable.signal();
+                        log.info("Account released: {}", candidate.getUsername());
+                    }, () -> log.warn("Ignoring release of an account outside the active pool"));
         } finally {
             accountLock.unlock();
         }
@@ -84,8 +99,60 @@ public class AccountManager {
     public void addAccount(String username, String password) {
         accountLock.lock();
         try {
-            accountPool.add(new AccountCredentials(username, password));
-            log.info("Added account to pool: {}", username);
+            String normalizedUsername = normalizeUsername(username);
+            boolean duplicate = accountPool.stream().anyMatch(account ->
+                    account.getUsername().equalsIgnoreCase(normalizedUsername));
+            if (duplicate) {
+                log.warn("Account already exists in pool: {}", normalizedUsername);
+                return;
+            }
+            accountPool.add(new AccountCredentials(normalizedUsername, password));
+            accountAvailable.signal();
+            log.info("Added account to pool: {}", normalizedUsername);
+        } finally {
+            accountLock.unlock();
+        }
+    }
+
+    /**
+     * Atomically replaces the idle account pool. Active sessions keep their
+     * current pool until they close, and the new configuration is applied on
+     * the next refresh.
+     *
+     * @return true when the replacement was applied; false when active
+     * sessions made replacement unsafe
+     */
+    public boolean replaceAccounts(List<AccountCredentials> accounts) {
+        Objects.requireNonNull(accounts, "accounts");
+        accountLock.lock();
+        try {
+            long inUseCount = accountPool.stream()
+                    .filter(AccountCredentials::isInUse)
+                    .count();
+            if (inUseCount > 0) {
+                log.warn(
+                        "Deferring account-pool refresh while {} account(s) are in use",
+                        inUseCount);
+                return false;
+            }
+
+            Map<String, AccountCredentials> uniqueAccounts = new LinkedHashMap<>();
+            for (AccountCredentials account : accounts) {
+                if (account == null || account.getUsername() == null
+                        || account.getUsername().isBlank()) {
+                    continue;
+                }
+                String username = normalizeUsername(account.getUsername());
+                uniqueAccounts.putIfAbsent(
+                        username.toLowerCase(Locale.ROOT),
+                        new AccountCredentials(username, account.getPassword()));
+            }
+
+            accountPool.clear();
+            accountPool.addAll(uniqueAccounts.values());
+            accountAvailable.signalAll();
+            log.info("Replaced account pool with {} enabled account(s)", accountPool.size());
+            return true;
         } finally {
             accountLock.unlock();
         }
@@ -95,32 +162,23 @@ public class AccountManager {
      * Clear all accounts from the pool.
      */
     public void clearAccounts() {
-        accountLock.lock();
-        try {
-            // Check for any in-use accounts before clearing
-            long inUseCount = accountPool.stream()
-                    .filter(AccountCredentials::isInUse)
-                    .count();
-            
-            if (inUseCount > 0) {
-                log.warn("Clearing account pool with {} accounts still in use", inUseCount);
-            }
-            
-            int accountCount = accountPool.size();
-            accountPool.clear();
-            log.info("Cleared {} accounts from pool", accountCount);
-        } finally {
-            accountLock.unlock();
+        if (!replaceAccounts(List.of())) {
+            log.warn("Account pool was not cleared because sessions are active");
         }
     }
-    
+
     /**
      * Get the current number of accounts in the pool.
      *
      * @return The number of accounts
      */
     public int getAccountCount() {
-        return accountPool.size();
+        accountLock.lock();
+        try {
+            return accountPool.size();
+        } finally {
+            accountLock.unlock();
+        }
     }
     
     /**
@@ -138,4 +196,11 @@ public class AccountManager {
             accountLock.unlock();
         }
     }
-} 
+
+    private String normalizeUsername(String username) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Account username cannot be blank");
+        }
+        return username.trim();
+    }
+}

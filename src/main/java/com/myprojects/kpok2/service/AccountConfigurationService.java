@@ -49,6 +49,9 @@ public class AccountConfigurationService {
     private static final int DEFAULT_THREAD_TIMEOUT = 2;
     private static final int DEFAULT_ITERATION_COUNT = 10; // Default 10 iterations
     private static final boolean DEFAULT_REUSE_SESSION = false;
+    private static final int MIN_MAX_THREADS = 1;
+    private static final int MAX_MAX_THREADS = 10;
+    private static final int MAX_THREAD_TIMEOUT = 300;
     
     // Current navigation settings
     private int maxThreads = DEFAULT_MAX_THREADS;
@@ -107,7 +110,7 @@ public class AccountConfigurationService {
             accounts.clear();
             
             // Find all account indices
-            Set<Integer> indices = new HashSet<>();
+            Set<Integer> indices = new TreeSet<>();
             for (Object key : properties.keySet()) {
                 String keyStr = (String) key;
                 if (keyStr.startsWith(ACCOUNT_PREFIX) && keyStr.contains(USERNAME_SUFFIX)) {
@@ -124,6 +127,7 @@ public class AccountConfigurationService {
             }
             
             // Load each account
+            Set<String> loadedUsernames = new HashSet<>();
             for (Integer index : indices) {
                 String usernameKey = ACCOUNT_PREFIX + "[" + index + "]" + USERNAME_SUFFIX;
                 String passwordKey = ACCOUNT_PREFIX + "[" + index + "]" + PASSWORD_SUFFIX;
@@ -134,6 +138,12 @@ public class AccountConfigurationService {
                 String enabled = properties.getProperty(enabledKey, "false");
                 
                 if (username != null && encPassword != null) {
+                    username = username.trim();
+                    String normalizedUsername = username.toLowerCase(Locale.ROOT);
+                    if (username.isEmpty() || !loadedUsernames.add(normalizedUsername)) {
+                        log.warn("Skipping blank or duplicate account at index {}", index);
+                        continue;
+                    }
                     // Decrypt password if it's encrypted
                     String password = decryptPasswordIfNeeded(encPassword);
                     
@@ -168,21 +178,25 @@ public class AccountConfigurationService {
         try {
             String maxThreadsStr = properties.getProperty(maxThreadsKey);
             if (maxThreadsStr != null && !maxThreadsStr.isEmpty()) {
-                maxThreads = Integer.parseInt(maxThreadsStr);
+                maxThreads = clamp(
+                        Integer.parseInt(maxThreadsStr),
+                        MIN_MAX_THREADS,
+                        MAX_MAX_THREADS);
             } else {
                 maxThreads = DEFAULT_MAX_THREADS;
             }
             
             String threadTimeoutStr = properties.getProperty(threadTimeoutKey);
             if (threadTimeoutStr != null && !threadTimeoutStr.isEmpty()) {
-                threadTimeout = Integer.parseInt(threadTimeoutStr);
+                threadTimeout = clamp(
+                        Integer.parseInt(threadTimeoutStr), 0, MAX_THREAD_TIMEOUT);
             } else {
                 threadTimeout = DEFAULT_THREAD_TIMEOUT;
             }
             
             String iterationCountStr = properties.getProperty(iterationCountKey);
             if (iterationCountStr != null && !iterationCountStr.isEmpty()) {
-                iterationCount = Integer.parseInt(iterationCountStr);
+                iterationCount = Math.max(0, Integer.parseInt(iterationCountStr));
             } else {
                 iterationCount = DEFAULT_ITERATION_COUNT;
             }
@@ -350,6 +364,7 @@ public class AccountConfigurationService {
      * Add a new account
      */
     public void addAccount(AccountDTO account) {
+        validateAccountForSave(account, -1);
         accounts.add(account);
         saveAccounts();
     }
@@ -359,6 +374,7 @@ public class AccountConfigurationService {
      */
     public void updateAccount(int index, AccountDTO updatedAccount) {
         if (index >= 0 && index < accounts.size()) {
+            validateAccountForSave(updatedAccount, index);
             accounts.set(index, updatedAccount);
             saveAccounts();
         }
@@ -392,7 +408,7 @@ public class AccountConfigurationService {
      * Set the maximum number of navigation threads
      */
     public void setMaxThreads(int maxThreads) {
-        this.maxThreads = maxThreads;
+        this.maxThreads = clamp(maxThreads, MIN_MAX_THREADS, MAX_MAX_THREADS);
         saveAccounts();
     }
     
@@ -442,7 +458,7 @@ public class AccountConfigurationService {
                                          boolean reuseSession) {
         QuizTarget target = QuizTarget.fromUrl(quizUrl);
         this.quizUrl = target.viewUrl();
-        this.maxThreads = maxThreads;
+        this.maxThreads = clamp(maxThreads, MIN_MAX_THREADS, MAX_MAX_THREADS);
         this.iterationCount = Math.max(0, iterationCount);
         this.reuseSession = reuseSession;
         saveAccounts();
@@ -580,5 +596,28 @@ public class AccountConfigurationService {
         public String getDisplayName() {
             return displayName;
         }
+    }
+
+    private void validateAccountForSave(AccountDTO account, int ignoredIndex) {
+        Objects.requireNonNull(account, "account");
+        String username = account.getUsername() == null ? "" : account.getUsername().trim();
+        if (username.isEmpty()) {
+            throw new IllegalArgumentException("Account username cannot be blank");
+        }
+        if (account.getPassword() == null || account.getPassword().isBlank()) {
+            throw new IllegalArgumentException("Account password cannot be blank");
+        }
+        for (int index = 0; index < accounts.size(); index++) {
+            if (index != ignoredIndex
+                    && accounts.get(index).getUsername().equalsIgnoreCase(username)) {
+                throw new IllegalArgumentException(
+                        "An account with this username already exists");
+            }
+        }
+        account.setUsername(username);
+    }
+
+    private static int clamp(int value, int minimum, int maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
     }
 }
