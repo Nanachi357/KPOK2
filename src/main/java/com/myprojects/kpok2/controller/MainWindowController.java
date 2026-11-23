@@ -3,6 +3,7 @@ package com.myprojects.kpok2.controller;
 import com.myprojects.kpok2.config.logging.UiLogAppender;
 import com.myprojects.kpok2.service.navigation.NavigationManager;
 import com.myprojects.kpok2.service.parser.TestParsingStatistics;
+import com.myprojects.kpok2.service.parser.CollectionRunProgress;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -164,16 +165,66 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     }
     
     private void updateIterationCount() {
-        int completed = parsingStatistics.getCompletedIterationsCount();
-        int total = parsingStatistics.getTotalIterationsNeeded();
+        CollectionRunProgress progress = parsingStatistics.getCollectionRunProgress();
+        boolean running = navigationManager.isRunning();
+        boolean stopping = running && (
+                navigationManager.isStopAfterCurrentRequested()
+                        || navigationManager.isImmediateStopRequested());
         
         Platform.runLater(() -> {
-            if (total <= 0) {
-                iterationLabel.setText("Iterations: " + completed + "/∞");
-            } else {
-                iterationLabel.setText("Iterations: " + completed + "/" + total);
-            }
+            iterationLabel.setText(formatRunProgress(progress, running, stopping));
         });
+    }
+
+    private String formatRunProgress(
+            CollectionRunProgress progress,
+            boolean running,
+            boolean stopping) {
+        String target = progress.unlimited()
+                ? "∞"
+                : Integer.toString(progress.targetAttempts());
+        String attempts = progress.completedAttempts() + "/" + target;
+        if (!running) {
+            return message("navigation.run.progress.idle", attempts);
+        }
+
+        String elapsed = formatDuration(progress.elapsed());
+        if (stopping) {
+            return message("navigation.run.progress.stopping", attempts, elapsed);
+        }
+        if (progress.unlimited()) {
+            if (progress.attemptsPerMinute() <= 0) {
+                return message("navigation.run.progress.measuring", attempts, elapsed);
+            }
+            return message(
+                    "navigation.run.progress.unlimited",
+                    attempts,
+                    elapsed,
+                    String.format(Locale.getDefault(), "%.1f",
+                            progress.attemptsPerMinute()));
+        }
+        if (progress.estimatedRemaining().isEmpty()) {
+            return message("navigation.run.progress.measuring", attempts, elapsed);
+        }
+        return message(
+                "navigation.run.progress.finite",
+                attempts,
+                elapsed,
+                formatDuration(progress.estimatedRemaining().orElseThrow()));
+    }
+
+    private String formatDuration(java.time.Duration duration) {
+        long seconds = Math.max(0, duration.toSeconds());
+        long hours = seconds / 3_600;
+        long minutes = seconds % 3_600 / 60;
+        long remainingSeconds = seconds % 60;
+        if (hours > 0) {
+            return hours + "h " + minutes + "m";
+        }
+        if (minutes > 0) {
+            return minutes + "m " + remainingSeconds + "s";
+        }
+        return remainingSeconds + "s";
     }
     
     @FXML
@@ -238,6 +289,10 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
 
     private String message(String key) {
         return messageSource.getMessage(key, null, Locale.getDefault());
+    }
+
+    private String message(String key, Object... arguments) {
+        return messageSource.getMessage(key, arguments, Locale.getDefault());
     }
     
     @FXML

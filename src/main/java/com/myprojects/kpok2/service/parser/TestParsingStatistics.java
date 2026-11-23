@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.time.Duration;
 
 @Component
 @Slf4j
@@ -25,6 +27,7 @@ public class TestParsingStatistics {
     private final AtomicInteger newQuestionsCount;
     private final AtomicInteger completedIterationsCount;
     private final AtomicInteger totalIterationsNeeded;
+    private final AtomicLong iterationRunStartedNanos;
     
     // Map account username to number of pages parsed by that account
     private final Map<String, Integer> accountsUsed;
@@ -42,6 +45,7 @@ public class TestParsingStatistics {
         this.newQuestionsCount = new AtomicInteger(0);
         this.completedIterationsCount = new AtomicInteger(0);
         this.totalIterationsNeeded = new AtomicInteger(0);
+        this.iterationRunStartedNanos = new AtomicLong(-1);
         this.accountsUsed = new ConcurrentHashMap<>();
         this.sessionHistory = Collections.synchronizedList(new ArrayList<>());
         this.lastResetTime = LocalDateTime.now();
@@ -119,6 +123,18 @@ public class TestParsingStatistics {
     /** Reset progress that belongs to one navigation run. */
     public void resetIterationProgress() {
         completedIterationsCount.set(0);
+        iterationRunStartedNanos.set(System.nanoTime());
+    }
+
+    public CollectionRunProgress getCollectionRunProgress() {
+        long started = iterationRunStartedNanos.get();
+        Duration elapsed = started < 0
+                ? Duration.ZERO
+                : Duration.ofNanos(Math.max(0, System.nanoTime() - started));
+        return CollectionRunProgress.calculate(
+                completedIterationsCount.get(),
+                totalIterationsNeeded.get(),
+                elapsed);
     }
 
     public void updateStats(TestParsingResultDto result) {
@@ -226,6 +242,7 @@ public class TestParsingStatistics {
         failedCount.set(0);
         newQuestionsCount.set(0);
         completedIterationsCount.set(0);
+        iterationRunStartedNanos.set(-1);
         // Don't reset totalIterationsNeeded, as we want to keep the setting
         accountsUsed.clear();
         sessionHistory.clear();

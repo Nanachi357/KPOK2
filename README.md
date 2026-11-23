@@ -126,6 +126,8 @@ This repository contains the application source code only; it does not publish a
 
 8. **Statistics and Monitoring**
    - The system tracks iteration counts, newly added study items, and used accounts
+   - Active runs show elapsed time and aggregate attempt throughput; finite runs add an approximate remaining time after the first completed attempt
+   - Unlimited runs never claim an end time and show attempts per minute instead
    - Parallel workers reserve attempts from one shared counter, so a finite run cannot exceed its configured total
    - A normal stop finishes active attempts without starting new ones; immediate interruption remains available for emergencies
    - Large runs (100 or more attempts) and unlimited runs require an explicit confirmation and explain that random delivery cannot guarantee full bank coverage
@@ -209,7 +211,6 @@ mvn spring-boot:run
 - `GET /api/navigation/status` - Return `running`, `stopping-after-current`, `stopping-now`, or `stopped`
 
 ## Development Plans
-- Adding runtime estimates for long collection runs
 - Optimizing parsing performance
 
 ## UI Features
@@ -217,7 +218,7 @@ mvn spring-boot:run
 The application provides a graphical user interface (JavaFX) with the following features:
 
 ### Main Window
-- Start, graceful stop-after-current, and confirmed emergency-stop controls with live status
+- Start, graceful stop-after-current, and confirmed emergency-stop controls with live status, elapsed time, throughput, and finite-run estimates
 - Non-blocking question library with full-text search, quiz/language/type/conflict filters, canonical rows, 25-item pages, revision/key/source details, and filtered JSON export
 - Log display for real-time monitoring
 - Filtered, background JSON export with revision and attempt history
