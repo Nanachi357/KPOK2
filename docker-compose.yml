@@ -10,6 +10,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: kpok2
       # Listen on the container network; the published port remains host-local.
       SERVER_ADDRESS: 0.0.0.0
+      KPOK2_API_TOKEN: ${KPOK2_API_TOKEN:-}
     ports:
       - "127.0.0.1:8080:8080"
 

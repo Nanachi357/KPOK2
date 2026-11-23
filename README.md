@@ -190,6 +190,12 @@ The application uses Spring Boot configuration properties. Main settings can be 
    - Docker publishes both the API (`8080`) and PostgreSQL (`5434`) only on the host loopback interface
    - A direct, non-Docker launch can override the API address with `SERVER_ADDRESS`, but remote exposure should only be enabled together with API authentication and non-default database credentials
 
+5. **REST API Authentication**
+   - REST access is locked when `KPOK2_API_TOKEN` is empty; the desktop UI continues to work because it does not call the REST API
+   - Set `KPOK2_API_TOKEN` to a random value of at least 32 characters before launch
+   - API clients must send `Authorization: Bearer <token>` with every request
+   - The token is never stored in the repository; use remote API access only behind HTTPS because plain HTTP does not encrypt headers
+
 > **Note:** Previous versions required manual editing of `application-local.properties` files, but account and navigation settings are now managed through the UI-based configuration system.
 
 ### Running the Application
@@ -198,6 +204,8 @@ mvn spring-boot:run
 ```
 
 ## API Endpoints
+
+All `/api/**` endpoints require a Bearer token and remain inaccessible until `KPOK2_API_TOKEN` is configured.
 
 ### Parser API
 - `POST /api/parse?url={testUrl}` - Start parsing a test at the specified URL
