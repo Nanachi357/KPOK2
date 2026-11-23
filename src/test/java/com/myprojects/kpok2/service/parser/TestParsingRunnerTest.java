@@ -10,7 +10,6 @@ import com.myprojects.kpok2.service.QuestionAssetFetchService;
 import com.myprojects.kpok2.service.catalog.QuizCatalogCache;
 import com.myprojects.kpok2.service.navigation.AccountCredentials;
 import com.myprojects.kpok2.service.navigation.NavigationSession;
-import com.myprojects.kpok2.service.navigation.NavigationSessionFactory;
 import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.WebDriver;
@@ -64,7 +63,6 @@ class TestParsingRunnerTest {
     }
 
     private Fixture fixture(int discovered, int parsed, int saved) {
-        NavigationSessionFactory sessionFactory = mock(NavigationSessionFactory.class);
         TestPageNavigator pageNavigator = mock(TestPageNavigator.class);
         TestQuestionParser questionParser = mock(TestQuestionParser.class);
         QuestionAssetFetchService assetFetchService = mock(QuestionAssetFetchService.class);
@@ -96,7 +94,6 @@ class TestParsingRunnerTest {
                         savedQuestions, saved, saved, saved));
 
         TestParsingRunner runner = new TestParsingRunner(
-                sessionFactory,
                 pageNavigator,
                 questionParser,
                 assetFetchService,

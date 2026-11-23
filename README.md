@@ -18,7 +18,7 @@ This repository contains the application source code only; it does not publish a
 
 ### Main Packages
 - `com.myprojects.kpok2` - root package
-  - `.config` - Spring, Selenium, async operations configurations
+  - `.config` - Spring and application configurations
   - `.controller` - REST API controllers
   - `.exception` - exception handling
   - `.model` - entities and DTOs
@@ -39,24 +39,21 @@ This repository contains the application source code only; it does not publish a
 - `QuestionRevisionAsset` - image placement and download status within a revision
 - `ParsedTestQuestionDto` - DTO for transferring question data between components
 - `QuestionRecordDto` - flattened revision/key representation used by the UI and API
-- `TestParsingResultDto` - DTO for parsing results
 - `StatisticsData` - data structure for parsing statistics
 
 #### Services
 - `TestQuestionService` - managing question storage and retrieval
-- `AuthenticationService` - authentication on the TestCenter platform
-- `TestParser` - coordinating the parsing process
-- `TestPageParser` - parsing HTML pages using Selenium
-- `TestParsingExecutor` - asynchronous execution of parsing tasks
+- `NavigationService` - bounded parallel collection using managed account/browser sessions
+- `TestParsingRunner` - parsing authenticated Moodle review pages
 - `TestParsingStatistics` - collecting and managing statistics about parsing sessions
 
 #### Configurations
-- `SeleniumConfig` - WebDriver configuration for Selenium
-- `AsyncConfig` - thread pool configuration for asynchronous operations
+- `WebDriverFactory` - isolated, managed Chrome sessions for collection and catalog access
 - `TestCenterConfig` - TestCenter access configuration
 
 #### API
-- `ParserController` - REST API for initiating parsing and retrieving results
+- `ParserController` - REST API for reading stored questions and assets
+- `NavigationController` - REST API for starting, stopping, and monitoring collection
 
 ## System Workflow
 
@@ -157,10 +154,10 @@ This keeps reordered options together, preserves changed option sets as revision
 - Sorting answer lists before hashing, so display order does not change identity
 
 ### Asynchronous Processing
-The system uses a thread pool for parallel processing of multiple practice sessions. The configuration in `AsyncConfig` allows adjusting the number of concurrent operations.
+`NavigationService` creates a bounded worker pool for each collection run. The UI-configured maximum thread count is capped by the number of enabled accounts, and each worker owns one managed browser session at a time.
 
 ### Error Handling
-A retry mechanism is implemented for failed parsing attempts. The system tracks the status of each parsing operation and can retry failed operations.
+Workers stop after a bounded number of consecutive failures instead of retrying forever. Collection progress and review-page completeness are tracked by the active navigation run.
 
 ## Setup and Launch
 
@@ -217,9 +214,7 @@ mvn spring-boot:run
 
 All `/api/**` endpoints require a Bearer token and remain inaccessible until `KPOK2_API_TOKEN` is configured.
 
-### Parser API
-- `POST /api/parse?url={testUrl}` - Start parsing a test at the specified URL
-- `GET /api/parse/results` - Get the results of the last parsing
+### Stored Question API
 - `GET /api/questions` - Get all saved questions
 - `GET /api/questions/search?query={searchText}` - Search questions by text
 - `GET /api/assets/{id}` - Retrieve a stored question image (the question response maps content hashes to these URLs)

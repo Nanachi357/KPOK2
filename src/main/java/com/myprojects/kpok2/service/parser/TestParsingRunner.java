@@ -7,7 +7,6 @@ import com.myprojects.kpok2.service.QuestionAssetFetchService;
 import com.myprojects.kpok2.service.TestQuestionService;
 import com.myprojects.kpok2.service.catalog.QuizCatalogCache;
 import com.myprojects.kpok2.service.navigation.NavigationSession;
-import com.myprojects.kpok2.service.navigation.NavigationSessionFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
@@ -25,7 +24,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TestParsingRunner {
 
-    private final NavigationSessionFactory navigationSessionFactory;
     private final TestPageNavigator pageNavigator;
     private final TestQuestionParser questionParser;
     private final QuestionAssetFetchService questionAssetFetchService;
@@ -34,13 +32,6 @@ public class TestParsingRunner {
     private final TestParsingStatistics parsingStatistics;
     private final QuizCatalogCache quizCatalogCache;
     
-    /**
-     * Process test URL using existing navigation session
-     */
-    public boolean processTestUrl(String url, NavigationSession session) {
-        return processReviewPage(url, session).isComplete();
-    }
-
     /**
      * Processes one review page and retains enough counts to verify that no
      * discovered Moodle question was silently discarded.
@@ -134,36 +125,5 @@ public class TestParsingRunner {
                 .filter(language -> language != null && !language.isBlank())
                 .findFirst()
                 .orElse(null);
-    }
-    
-    /**
-     * Process test URL by creating new navigation session
-     * @deprecated Use processTestUrl(String, NavigationSession) instead
-     */
-    @Deprecated
-    public boolean processTestUrl(String url) {
-        log.warn("Using deprecated method that creates new session. Use processTestUrl(String, NavigationSession) instead");
-        return false;
-    }
-    
-    /**
-     * Parse the current page
-     * @return List of parsed questions from the current page
-     */
-    private List<ParsedTestQuestionDto> parseCurrentPage() {
-        log.info("Parsing the current page");
-        
-        // Parse current page
-        Document doc = pageNavigator.getCurrentPageDocument();
-        
-        // Parse questions from the page
-        List<ParsedTestQuestionDto> pageQuestions = questionParser.parseQuestions(doc);
-        
-        log.info("Found {} questions on the current page", pageQuestions.size());
-        
-        // Take screenshot of the page
-        pageNavigator.takeScreenshot();
-        
-        return pageQuestions;
     }
 }

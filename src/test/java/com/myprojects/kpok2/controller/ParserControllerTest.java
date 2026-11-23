@@ -3,9 +3,10 @@ package com.myprojects.kpok2.controller;
 import com.myprojects.kpok2.model.QuestionAsset;
 import com.myprojects.kpok2.service.QuestionAssetService;
 import com.myprojects.kpok2.service.TestQuestionService;
-import com.myprojects.kpok2.service.parser.TestParser;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Optional;
 
@@ -14,6 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class ParserControllerTest {
 
@@ -31,7 +35,6 @@ class ParserControllerTest {
                         .content(content)
                         .build()));
         ParserController controller = new ParserController(
-                mock(TestParser.class),
                 mock(TestQuestionService.class),
                 assetService);
 
@@ -51,10 +54,22 @@ class ParserControllerTest {
         QuestionAssetService assetService = mock(QuestionAssetService.class);
         when(assetService.findById(99L)).thenReturn(Optional.empty());
         ParserController controller = new ParserController(
-                mock(TestParser.class),
                 mock(TestQuestionService.class),
                 assetService);
 
         assertEquals(404, controller.getQuestionAsset(99L).getStatusCode().value());
+    }
+
+    @Test
+    void legacyParseEndpointsAreNotMapped() throws Exception {
+        ParserController controller = new ParserController(
+                mock(TestQuestionService.class),
+                mock(QuestionAssetService.class));
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/parse").param("url", "https://example.test/quiz"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/parse/results"))
+                .andExpect(status().isNotFound());
     }
 }

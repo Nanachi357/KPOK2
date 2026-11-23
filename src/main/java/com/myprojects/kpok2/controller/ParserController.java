@@ -1,10 +1,8 @@
 package com.myprojects.kpok2.controller;
 
-import com.myprojects.kpok2.model.dto.TestParsingResultDto;
 import com.myprojects.kpok2.model.dto.QuestionRecordDto;
 import com.myprojects.kpok2.service.QuestionAssetService;
 import com.myprojects.kpok2.service.TestQuestionService;
-import com.myprojects.kpok2.service.parser.TestParser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -21,21 +19,8 @@ import java.util.List;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 public class ParserController {
-    private final TestParser testParser;
     private final TestQuestionService questionService;
     private final QuestionAssetService questionAssetService;
-
-    @PostMapping("/parse")
-    public ResponseEntity<Void> parseTest(@RequestParam String url) {
-        testParser.parseTest(url);
-        return ResponseEntity.accepted().build();
-    }
-
-    @GetMapping("/parse/results")
-    public ResponseEntity<List<TestParsingResultDto>> getParsingResults() {
-        List<TestParsingResultDto> results = testParser.getLastParsingResults();
-        return ResponseEntity.ok(results);
-    }
 
     @GetMapping("/questions")
     public ResponseEntity<List<QuestionRecordDto>> getAllQuestions() {

@@ -1,6 +1,5 @@
 package com.myprojects.kpok2.service.parser;
 
-import com.myprojects.kpok2.model.dto.TestParsingResultDto;
 import com.myprojects.kpok2.model.dto.ReviewAttemptResult;
 import lombok.Data;
 import lombok.Getter;
@@ -135,15 +134,6 @@ public class TestParsingStatistics {
                 completedIterationsCount.get(),
                 totalIterationsNeeded.get(),
                 elapsed);
-    }
-
-    public void updateStats(TestParsingResultDto result) {
-        processedCount.incrementAndGet();
-        if (result.getStatus() == ParsingStatus.SUCCESS) {
-            successCount.incrementAndGet();
-        } else {
-            failedCount.incrementAndGet();
-        }
     }
 
     /**
