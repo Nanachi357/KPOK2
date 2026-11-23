@@ -15,6 +15,7 @@ import org.openqa.selenium.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -206,12 +207,19 @@ public class TestPageNavigator {
      * Saves the HTML content to a file for debugging
      */
     private void saveHtmlToFile(String html, String fileName) {
+        if (!debugProperties.isSaveFiles()) {
+            return;
+        }
+
         try {
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
             String fullFileName = fileName + "_" + timestamp + ".html";
             
             Path filePath = Path.of(debugProperties.getHtmlDirPath(), fullFileName);
-            Files.writeString(filePath, html);
+            Files.writeString(
+                    filePath,
+                    DebugHtmlSanitizer.sanitize(html),
+                    StandardCharsets.UTF_8);
             
             log.info("HTML saved to: {}", filePath);
         } catch (IOException e) {
@@ -248,11 +256,18 @@ public class TestPageNavigator {
      * Save page source to debug directory
      */
     public void savePageSource(WebDriver driver, String url) {
+        if (!debugProperties.isSaveFiles()) {
+            return;
+        }
+
         try {
             String pageSource = driver.getPageSource();
             String fileName = generateFileName(url, "html");
             Path filePath = Paths.get(debugProperties.getHtmlDirPath(), fileName);
-            Files.writeString(filePath, pageSource);
+            Files.writeString(
+                    filePath,
+                    DebugHtmlSanitizer.sanitize(pageSource),
+                    StandardCharsets.UTF_8);
             log.debug("Saved page source to: {}", filePath);
         } catch (Exception e) {
             log.error("Error saving page source for URL {}: {}", url, e.getMessage());
@@ -263,6 +278,10 @@ public class TestPageNavigator {
      * Save screenshot to debug directory
      */
     public void saveScreenshot(WebDriver driver, String url) {
+        if (!debugProperties.isSaveFiles()) {
+            return;
+        }
+
         try {
             TakesScreenshot ts = (TakesScreenshot) driver;
             File screenshot = ts.getScreenshotAs(OutputType.FILE);
@@ -288,11 +307,15 @@ public class TestPageNavigator {
     }
     
     private String generateFileName(String url, String extension) {
-        // Remove protocol and special characters, replace with underscores
-        String fileName = url.replaceAll("https?://", "")
+        // Query parameters can contain Moodle's sesskey, so never include them
+        // (or fragments) in a diagnostic filename.
+        String urlWithoutQuery = url == null
+                ? "page"
+                : url.replaceFirst("[?#].*$", "");
+        String fileName = urlWithoutQuery.replaceAll("https?://", "")
                 .replaceAll("[^a-zA-Z0-9.]", "_");
         
         // Add timestamp to make filename unique
         return String.format("%d_%s.%s", System.currentTimeMillis(), fileName, extension);
     }
-} 
+}

@@ -199,6 +199,11 @@ The application uses Spring Boot configuration properties. Main settings can be 
    - API clients must send `Authorization: Bearer <token>` with every request
    - The token is never stored in the repository; use remote API access only behind HTTPS because plain HTTP does not encrypt headers
 
+6. **Diagnostic Files**
+   - HTML and screenshot diagnostics are disabled by default
+   - Set `KPOK2_DEBUG_SAVE_FILES=true` only while troubleshooting; generated files remain local and ignored by Git
+   - Saved HTML has Moodle `sesskey` values redacted, and URL query parameters are never copied into diagnostic filenames
+
 > **Note:** Previous versions required manual editing of `application-local.properties` files, but account and navigation settings are now managed through the UI-based configuration system.
 
 ### Running the Application
