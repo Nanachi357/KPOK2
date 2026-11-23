@@ -9,7 +9,6 @@ import com.myprojects.kpok2.service.parser.TestParsingStatistics;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,6 +17,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 class TestQuestionServiceTest {
@@ -33,8 +33,8 @@ class TestQuestionServiceTest {
                 .build();
 
         when(fixture.mapper.toEntity(dto)).thenReturn(parsed);
-        when(fixture.repository.findByQuestionHash("canonical-hash"))
-                .thenReturn(Optional.of(existing));
+        when(fixture.repository.findAllByQuestionHashIn(any()))
+                .thenReturn(List.of(existing));
         stubExistingVersion(fixture, existing, dto);
 
         TestQuestionService.SaveResult result =
@@ -55,7 +55,7 @@ class TestQuestionServiceTest {
         ParsedTestQuestionDto dto = ParsedTestQuestionDto.builder().build();
         TestQuestion entity = TestQuestion.builder().questionHash("hash").build();
         when(fixture.mapper.toEntity(dto)).thenReturn(entity);
-        when(fixture.repository.findByQuestionHash("hash")).thenReturn(Optional.empty());
+        when(fixture.repository.findAllByQuestionHashIn(any())).thenReturn(List.of());
         when(fixture.repository.save(entity)).thenReturn(entity);
         when(fixture.versionService.recordVersion(entity, dto)).thenReturn(
                 new QuestionVersionService.VersioningResult(
@@ -104,8 +104,8 @@ class TestQuestionServiceTest {
                 .build();
 
         when(fixture.mapper.toEntity(dto)).thenReturn(parsed);
-        when(fixture.repository.findByQuestionHash("canonical-hash"))
-                .thenReturn(Optional.of(existing));
+        when(fixture.repository.findAllByQuestionHashIn(any()))
+                .thenReturn(List.of(existing));
         stubExistingVersion(fixture, existing, dto);
 
         TestQuestionService.SaveResult result =
@@ -135,8 +135,8 @@ class TestQuestionServiceTest {
                 .build();
 
         when(fixture.mapper.toEntity(dto)).thenReturn(parsed);
-        when(fixture.repository.findByQuestionHash("canonical-hash"))
-                .thenReturn(Optional.of(existing));
+        when(fixture.repository.findAllByQuestionHashIn(any()))
+                .thenReturn(List.of(existing));
         when(fixture.versionService.recordVersion(existing, dto)).thenReturn(
                 new QuestionVersionService.VersioningResult(
                         com.myprojects.kpok2.model.QuestionRevision.builder().id(1L).build(),
@@ -157,6 +157,69 @@ class TestQuestionServiceTest {
         assertEquals(1, result.newRevisions());
         assertEquals(1, result.newAnswerKeys());
         verify(fixture.statistics).incrementNewQuestions(1);
+    }
+
+    @Test
+    void loadsCanonicalQuestionsOnceForTheWholeParsedPage() {
+        Fixture fixture = fixture();
+        ParsedTestQuestionDto firstDto = ParsedTestQuestionDto.builder()
+                .questionText("First")
+                .build();
+        ParsedTestQuestionDto secondDto = ParsedTestQuestionDto.builder()
+                .questionText("Second")
+                .build();
+        TestQuestion first = TestQuestion.builder().questionHash("hash-1").build();
+        TestQuestion second = TestQuestion.builder().questionHash("hash-2").build();
+        when(fixture.mapper.toEntity(firstDto)).thenReturn(first);
+        when(fixture.mapper.toEntity(secondDto)).thenReturn(second);
+        when(fixture.repository.findAllByQuestionHashIn(any())).thenReturn(List.of());
+        when(fixture.repository.save(any(TestQuestion.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(fixture.versionService.recordVersion(any(), any())).thenReturn(
+                new QuestionVersionService.VersioningResult(
+                        com.myprojects.kpok2.model.QuestionRevision.builder().id(1L).build(),
+                        com.myprojects.kpok2.model.AnswerKey.builder().id(2L).build(),
+                        false,
+                        false,
+                        false));
+
+        fixture.service.saveQuestions(List.of(firstDto, secondDto));
+
+        verify(fixture.repository, times(1)).findAllByQuestionHashIn(any());
+        verify(fixture.repository, never()).findByQuestionHash(any());
+        verify(fixture.repository, times(2)).save(any(TestQuestion.class));
+    }
+
+    @Test
+    void reusesANewCanonicalQuestionRepeatedWithinTheSamePage() {
+        Fixture fixture = fixture();
+        ParsedTestQuestionDto firstDto = ParsedTestQuestionDto.builder()
+                .questionText("First occurrence")
+                .build();
+        ParsedTestQuestionDto secondDto = ParsedTestQuestionDto.builder()
+                .questionText("Second occurrence")
+                .build();
+        TestQuestion first = TestQuestion.builder().questionHash("same-hash").build();
+        TestQuestion second = TestQuestion.builder().questionHash("same-hash").build();
+        when(fixture.mapper.toEntity(firstDto)).thenReturn(first);
+        when(fixture.mapper.toEntity(secondDto)).thenReturn(second);
+        when(fixture.repository.findAllByQuestionHashIn(any())).thenReturn(List.of());
+        when(fixture.repository.save(first)).thenReturn(first);
+        when(fixture.versionService.recordVersion(any(), any())).thenReturn(
+                new QuestionVersionService.VersioningResult(
+                        com.myprojects.kpok2.model.QuestionRevision.builder().id(1L).build(),
+                        com.myprojects.kpok2.model.AnswerKey.builder().id(2L).build(),
+                        false,
+                        false,
+                        false));
+
+        TestQuestionService.SaveResult result = fixture.service.saveQuestions(
+                List.of(firstDto, secondDto));
+
+        assertEquals(List.of(first), result.newCanonicalQuestions());
+        verify(fixture.repository, times(1)).save(any(TestQuestion.class));
+        verify(fixture.versionService).recordVersion(first, firstDto);
+        verify(fixture.versionService).recordVersion(first, secondDto);
     }
 
     private Fixture fixture() {

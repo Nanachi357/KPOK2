@@ -97,6 +97,9 @@ This repository contains the application source code only; it does not publish a
    - Existing source fields are backfilled into the normalized origin table automatically on upgrade
    - Each collected Moodle attempt has an idempotent history row with completeness and question-count metrics; repeated verification preserves the initial new-question count
    - Statistics about new questions are updated
+   - Question containers are scanned once per document and normalized answer options are reused during answer-key detection
+   - Canonical hashes for an entire parsed page are resolved with one database lookup instead of one query per question
+   - Parser and persistence durations are logged in milliseconds for real-run performance monitoring
 
 4. **Question Search and Retrieval**
    - API searches contexts, question wording, answer options, and correct answers
@@ -209,9 +212,6 @@ mvn spring-boot:run
 - `POST /api/navigation/stop-after-current` - Stop starting attempts and finish the active attempts
 - `POST /api/navigation/stop` - Interrupt active navigation immediately
 - `GET /api/navigation/status` - Return `running`, `stopping-after-current`, `stopping-now`, or `stopped`
-
-## Development Plans
-- Optimizing parsing performance
 
 ## UI Features
 

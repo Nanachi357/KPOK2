@@ -74,14 +74,24 @@ public class TestQuestionParser {
             String sourceUrl,
             Long sourceQuizId,
             String languageHint) {
+        long startedNanos = System.nanoTime();
         List<ParsedTestQuestionDto> questions = new ArrayList<>();
         Elements pageElements = doc.select(TestParserConstants.QUESTION_SELECTOR);
         String documentLanguage = documentLanguage(doc);
         String contentBaseUrl = doc.baseUri().isBlank() ? sourceUrl : doc.baseUri();
         Element contextElement = null;
 
+        int questionCount = 0;
+        int contextCount = 0;
+        for (Element pageElement : pageElements) {
+            if (isContextBlock(pageElement)) {
+                contextCount++;
+            } else {
+                questionCount++;
+            }
+        }
         log.info("Found {} question containers and {} context blocks",
-                countQuestionContainers(doc), countContextBlocks(doc));
+                questionCount, contextCount);
 
         for (Element questionElement : pageElements) {
             if (isContextBlock(questionElement)) {
@@ -105,6 +115,10 @@ public class TestQuestionParser {
             }
         }
         
+        log.info("Parsed {} questions in {} ms",
+                questions.size(),
+                java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                        System.nanoTime() - startedNanos));
         return questions;
     }
 
@@ -118,12 +132,6 @@ public class TestQuestionParser {
                 .count();
     }
 
-    private int countContextBlocks(Document document) {
-        return (int) document.select(TestParserConstants.QUESTION_SELECTOR).stream()
-                .filter(this::isContextBlock)
-                .count();
-    }
-    
     /**
      * Parses an individual question
      * @param questionElement JSoup Element containing the question HTML
@@ -193,12 +201,19 @@ public class TestQuestionParser {
                 return null;
             }
 
-            List<String> normalizedAnswers = answers.stream()
-                    .map(normalizer::normalizeAnswer)
+            List<String> normalizedAnswers = options.stream()
+                    .map(AnswerOption::normalizedText)
                     .toList();
-            List<String> normalizedCorrectAnswers = correctAnswers.stream()
-                    .map(normalizer::normalizeAnswer)
+            Set<String> correctAnswerSet = new LinkedHashSet<>(correctAnswers);
+            List<String> normalizedCorrectAnswers = options.stream()
+                    .filter(option -> correctAnswerSet.contains(option.text()))
+                    .map(AnswerOption::normalizedText)
                     .toList();
+            if (normalizedCorrectAnswers.size() != correctAnswers.size()) {
+                normalizedCorrectAnswers = correctAnswers.stream()
+                        .map(normalizer::normalizeAnswer)
+                        .toList();
+            }
             String correctAnswer = String.join(" | ", correctAnswers);
             String normalizedCorrectAnswer = String.join(" | ", normalizedCorrectAnswers);
             String legacyCorrectAnswer = feedbackText
@@ -251,7 +266,11 @@ public class TestQuestionParser {
             if (!text.isEmpty()) {
                 boolean structurallyCorrect = option.hasClass("correct")
                         || !option.select(".correct, i.text-success, i.fa-check").isEmpty();
-                options.add(new AnswerOption(text, structurallyCorrect, sourceIndex));
+                options.add(new AnswerOption(
+                        text,
+                        normalizer.normalizeAnswer(text),
+                        structurallyCorrect,
+                        sourceIndex));
             }
         }
         return options;
@@ -273,19 +292,19 @@ public class TestQuestionParser {
         String normalizedFeedback = normalizer.normalizeText(feedbackText);
         List<AnswerOption> longestFirst = options.stream()
                 .sorted(Comparator.comparingInt(
-                        (AnswerOption option) -> normalizer.normalizeAnswer(option.text()).length())
+                        (AnswerOption option) -> option.normalizedText().length())
                         .reversed())
                 .toList();
 
         if (questionType != QuestionType.MULTIPLE_CHOICE) {
             return longestFirst.stream()
                     .filter(option -> endsWithPhrase(
-                            normalizedFeedback, normalizer.normalizeAnswer(option.text())))
+                            normalizedFeedback, option.normalizedText()))
                     .findFirst()
                     .or(() -> longestFirst.stream().filter(option -> containsPhrase(
-                            normalizedFeedback, normalizer.normalizeAnswer(option.text()))).findFirst())
+                            normalizedFeedback, option.normalizedText())).findFirst())
                     .or(() -> longestFirst.stream().filter(option -> containsCompactAnswer(
-                            normalizedFeedback, normalizer.normalizeAnswer(option.text()))).findFirst())
+                            normalizedFeedback, option.normalizedText())).findFirst())
                     .map(option -> List.of(option.text()))
                     .orElseGet(List::of);
         }
@@ -293,7 +312,7 @@ public class TestQuestionParser {
         String remainingFeedback = " " + normalizedFeedback + " ";
         Set<String> matched = new LinkedHashSet<>();
         for (AnswerOption option : longestFirst) {
-            String normalizedOption = normalizer.normalizeAnswer(option.text());
+            String normalizedOption = option.normalizedText();
             String phrase = " " + normalizedOption + " ";
             if (!normalizedOption.isBlank() && remainingFeedback.contains(phrase)) {
                 matched.add(option.text());
@@ -303,7 +322,7 @@ public class TestQuestionParser {
 
         if (matched.isEmpty()) {
             for (AnswerOption option : longestFirst) {
-                String normalizedOption = normalizer.normalizeAnswer(option.text());
+                String normalizedOption = option.normalizedText();
                 if (containsCompactAnswer(remainingFeedback, normalizedOption)) {
                     matched.add(option.text());
                     remainingFeedback = remainingFeedback.replace(normalizedOption, " ");
@@ -511,7 +530,10 @@ public class TestQuestionParser {
     }
 
     private record AnswerOption(
-            String text, boolean structurallyCorrect, int sourceIndex) {
+            String text,
+            String normalizedText,
+            boolean structurallyCorrect,
+            int sourceIndex) {
     }
     
     /**

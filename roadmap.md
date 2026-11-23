@@ -170,7 +170,7 @@ Time Estimates:
 
 ### Performance Metrics
 - Parser Operations:
-  - Current: [TO BE MEASURED]
+  - Current: parser and persistence duration are logged for every processed page
   - Target: To be defined after baseline measurements
   - Metrics to track:
     * Time per page processing

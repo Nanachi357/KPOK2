@@ -12,8 +12,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
@@ -43,25 +47,45 @@ public class TestQuestionService {
     @Transactional
     public synchronized SaveResult saveQuestions(
             List<ParsedTestQuestionDto> questions) {
+        long startedNanos = System.nanoTime();
         List<TestQuestion> savedQuestions = new ArrayList<>();
         int newQuestionRecords = 0;
         int newRevisions = 0;
         int newAnswerKeys = 0;
 
-        for (ParsedTestQuestionDto dto : questions) {
-            TestQuestion entity = testQuestionMapper.toEntity(dto);
+        List<PreparedQuestion> preparedQuestions = questions.stream()
+                .map(dto -> new PreparedQuestion(dto, testQuestionMapper.toEntity(dto)))
+                .toList();
+        Set<String> hashes = preparedQuestions.stream()
+                .map(prepared -> prepared.entity().getQuestionHash())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        List<TestQuestion> existingQuestions = hashes.isEmpty()
+                ? List.of()
+                : repository.findAllByQuestionHashIn(hashes);
+        Map<String, TestQuestion> questionsByHash = existingQuestions
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        TestQuestion::getQuestionHash,
+                        question -> question,
+                        (first, ignored) -> first,
+                        LinkedHashMap::new));
+
+        for (PreparedQuestion prepared : preparedQuestions) {
+            ParsedTestQuestionDto dto = prepared.dto();
+            TestQuestion entity = prepared.entity();
             String hash = entity.getQuestionHash();
 
-            Optional<TestQuestion> existing = repository.findByQuestionHash(hash);
-            boolean newQuestion = existing.isEmpty();
+            TestQuestion existing = questionsByHash.get(hash);
+            boolean newQuestion = existing == null;
             TestQuestion storedQuestion;
             if (newQuestion) {
                 storedQuestion = repository.save(entity);
+                questionsByHash.put(hash, storedQuestion);
                 savedQuestions.add(storedQuestion);
                 log.debug("Saved new canonical question: [hash={}] {}",
                         hash, entity.getQuestionText());
             } else {
-                storedQuestion = existing.orElseThrow();
+                storedQuestion = existing;
                 enrichMissingProvenance(storedQuestion, entity);
                 log.debug("Skipped duplicate question: [hash={}] {}", hash, entity.getQuestionText());
             }
@@ -86,12 +110,14 @@ public class TestQuestionService {
 
         log.info(
                 "Saved {} new question records ({} canonical, {} revisions, {} keys) "
-                        + "out of {} questions processed",
+                        + "out of {} questions processed in {} ms",
                 newQuestionRecords,
                 savedQuestions.size(),
                 newRevisions,
                 newAnswerKeys,
-                questions.size());
+                questions.size(),
+                java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                        System.nanoTime() - startedNanos));
         
         parsingStatistics.incrementNewQuestions(newQuestionRecords);
         
@@ -182,5 +208,10 @@ public class TestQuestionService {
                     ? List.of()
                     : List.copyOf(newCanonicalQuestions);
         }
+    }
+
+    private record PreparedQuestion(
+            ParsedTestQuestionDto dto,
+            TestQuestion entity) {
     }
 }
