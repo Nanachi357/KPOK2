@@ -3,8 +3,12 @@ package com.myprojects.kpok2.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.myprojects.kpok2.model.dto.ParsedQuestionAssetDto;
+import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
 import com.myprojects.kpok2.model.dto.export.QuestionExportDocument;
 import com.myprojects.kpok2.model.dto.importing.QuestionImportPreview;
+import com.myprojects.kpok2.service.mapper.QuestionContentFingerprintUtils;
+import com.myprojects.kpok2.service.mapper.TestQuestionMapperUtils;
 import com.myprojects.kpok2.service.parser.TestNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -103,6 +107,7 @@ public class QuestionImportService {
             }
             validateOrigins(question.origins(), questionPath, counters, errors);
             validateRevisions(question.revisions(), questionPath, counters, errors);
+            validateIdentityHashes(question, questionPath, errors);
         }
         validateAttempts(document.attempts(), counters, errors);
 
@@ -238,6 +243,94 @@ public class QuestionImportService {
             }
             validateTimeRange(key.firstSeenAt(), key.lastSeenAt(), path, errors);
             validateObservations(key.observations(), path, counters, errors);
+        }
+    }
+
+    private void validateIdentityHashes(
+            QuestionExportDocument.ExportQuestion question,
+            String questionPath,
+            ValidationErrors errors) {
+        if (!hasText(question.normalizedText())
+                || question.revisions().isEmpty()) {
+            return;
+        }
+
+        for (int revisionIndex = 0;
+                revisionIndex < question.revisions().size();
+                revisionIndex++) {
+            var revision = question.revisions().get(revisionIndex);
+            String revisionPath = questionPath + ".revisions[" + revisionIndex + "]";
+            ParsedTestQuestionDto identitySource = identitySource(revision);
+            String expectedQuestionHash = TestQuestionMapperUtils.generateCanonicalHash(
+                    question.normalizedContext(),
+                    question.normalizedText(),
+                    QuestionContentFingerprintUtils.canonicalFingerprint(identitySource));
+            requireMatchingHash(
+                    question.questionHash(),
+                    expectedQuestionHash,
+                    questionPath + ".questionHash",
+                    errors);
+
+            if (revision.questionType() == null
+                    || revision.normalizedAnswers().isEmpty()) {
+                continue;
+            }
+            String expectedRevisionHash = TestQuestionMapperUtils.generateRevisionHash(
+                    expectedQuestionHash,
+                    revision.normalizedAnswers(),
+                    revision.questionType(),
+                    QuestionContentFingerprintUtils.revisionFingerprint(identitySource));
+            requireMatchingHash(
+                    revision.revisionHash(),
+                    expectedRevisionHash,
+                    revisionPath + ".revisionHash",
+                    errors);
+
+            for (int keyIndex = 0;
+                    keyIndex < revision.answerKeys().size();
+                    keyIndex++) {
+                var key = revision.answerKeys().get(keyIndex);
+                if (key.normalizedCorrectAnswers().isEmpty()) {
+                    continue;
+                }
+                String expectedKeyHash = TestQuestionMapperUtils.generateAnswerKeyHash(
+                        key.normalizedCorrectAnswers());
+                requireMatchingHash(
+                        key.keyHash(),
+                        expectedKeyHash,
+                        revisionPath + ".answerKeys[" + keyIndex + "].keyHash",
+                        errors);
+            }
+        }
+    }
+
+    private ParsedTestQuestionDto identitySource(
+            QuestionExportDocument.ExportRevision revision) {
+        List<ParsedQuestionAssetDto> assets = revision.assets().stream()
+                .map(asset -> ParsedQuestionAssetDto.builder()
+                        .contentLocation(asset.contentLocation())
+                        .answerIndex(asset.answerIndex())
+                        .sequenceIndex(asset.sequenceIndex())
+                        .sourceUrl(asset.sourceUrl())
+                        .contentHash(asset.contentHash())
+                        .build())
+                .toList();
+        return ParsedTestQuestionDto.builder()
+                .contextHtml(revision.contextHtml())
+                .questionHtml(revision.questionHtml())
+                .answerHtml(revision.answerHtml())
+                .normalizedAnswers(revision.normalizedAnswers())
+                .assets(assets)
+                .build();
+    }
+
+    private void requireMatchingHash(
+            String supplied,
+            String expected,
+            String path,
+            ValidationErrors errors) {
+        if (hasText(supplied) && !supplied.equals(expected)) {
+            errors.add(path + " does not match the normalized document content");
         }
     }
 

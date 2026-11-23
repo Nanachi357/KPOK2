@@ -4,6 +4,7 @@ import com.myprojects.kpok2.model.AssetFetchStatus;
 import com.myprojects.kpok2.model.QuestionContentLocation;
 import com.myprojects.kpok2.model.dto.ParsedQuestionAssetDto;
 import com.myprojects.kpok2.model.dto.ParsedTestQuestionDto;
+import com.myprojects.kpok2.service.mapper.QuestionContentFingerprintUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -72,12 +73,10 @@ public class QuestionAssetFetchService {
                 apply(asset, result);
             }
             rewriteHtml(question, assets);
-            question.setCanonicalContentFingerprint(fingerprint(
-                    question,
-                    List.of(QuestionContentLocation.CONTEXT, QuestionContentLocation.QUESTION)));
-            question.setRevisionContentFingerprint(fingerprint(
-                    question,
-                    List.of(QuestionContentLocation.ANSWER)));
+            question.setCanonicalContentFingerprint(
+                    QuestionContentFingerprintUtils.canonicalFingerprint(question));
+            question.setRevisionContentFingerprint(
+                    QuestionContentFingerprintUtils.revisionFingerprint(question));
             enrichCorrectAnswerIdentity(question);
         }
     }
@@ -229,112 +228,6 @@ public class QuestionAssetFetchService {
         return document.body().html().trim();
     }
 
-    private String fingerprint(
-            ParsedTestQuestionDto question,
-            List<QuestionContentLocation> includedLocations) {
-        if (includedLocations.size() == 1
-                && includedLocations.contains(QuestionContentLocation.ANSWER)) {
-            return answerSetFingerprint(question);
-        }
-        List<String> tokens = new ArrayList<>();
-        for (ParsedQuestionAssetDto asset : Optional.ofNullable(question.getAssets())
-                .orElseGet(List::of)) {
-            if (!includedLocations.contains(asset.getContentLocation())) {
-                continue;
-            }
-            String identity = asset.getContentHash() == null
-                    ? safe(asset.getSourceUrl())
-                    : asset.getContentHash();
-            if (!identity.isBlank()) {
-                tokens.add(asset.getContentLocation() + ":image:" + identity);
-            }
-        }
-
-        if (includedLocations.contains(QuestionContentLocation.CONTEXT)) {
-            collectStructuredTokens("context", question.getContextHtml(), tokens);
-        }
-        if (includedLocations.contains(QuestionContentLocation.QUESTION)) {
-            collectStructuredTokens("question", question.getQuestionHtml(), tokens);
-        }
-        if (includedLocations.contains(QuestionContentLocation.ANSWER)) {
-            for (String html : Optional.ofNullable(question.getAnswerHtml())
-                    .orElseGet(List::of)) {
-                collectStructuredTokens("answer", html, tokens);
-            }
-        }
-
-        if (tokens.isEmpty()) {
-            return null;
-        }
-        tokens.sort(String::compareTo);
-        return sha256(String.join("\n", tokens).getBytes(StandardCharsets.UTF_8));
-    }
-
-    private String answerSetFingerprint(ParsedTestQuestionDto question) {
-        List<String> optionTokens = new ArrayList<>();
-        int optionCount = Math.max(
-                Optional.ofNullable(question.getNormalizedAnswers())
-                        .orElseGet(List::of)
-                        .size(),
-                Optional.ofNullable(question.getAnswerHtml())
-                        .orElseGet(List::of)
-                        .size());
-        for (ParsedQuestionAssetDto asset : Optional.ofNullable(question.getAssets())
-                .orElseGet(List::of)) {
-            if (asset.getContentLocation() == QuestionContentLocation.ANSWER) {
-                optionCount = Math.max(optionCount, asset.getAnswerIndex() + 1);
-            }
-        }
-
-        for (int index = 0; index < optionCount; index++) {
-            String contentFingerprint = answerContentFingerprint(question, index);
-            if (contentFingerprint == null) {
-                continue;
-            }
-            List<String> normalizedAnswers = Optional.ofNullable(
-                    question.getNormalizedAnswers()).orElseGet(List::of);
-            String normalizedText = index < normalizedAnswers.size()
-                    ? normalizedAnswers.get(index)
-                    : "";
-            optionTokens.add("answer-option:" + normalizedText
-                    + ":" + contentFingerprint);
-        }
-        if (optionTokens.isEmpty()) {
-            return null;
-        }
-        optionTokens.sort(String::compareTo);
-        return sha256(String.join("\n", optionTokens)
-                .getBytes(StandardCharsets.UTF_8));
-    }
-
-    private String answerContentFingerprint(
-            ParsedTestQuestionDto question, int answerIndex) {
-        List<String> tokens = new ArrayList<>();
-        for (ParsedQuestionAssetDto asset : Optional.ofNullable(question.getAssets())
-                .orElseGet(List::of)) {
-            if (asset.getContentLocation() != QuestionContentLocation.ANSWER
-                    || asset.getAnswerIndex() != answerIndex) {
-                continue;
-            }
-            String identity = asset.getContentHash() == null
-                    ? safe(asset.getSourceUrl())
-                    : asset.getContentHash();
-            if (!identity.isBlank()) {
-                tokens.add("image:" + identity);
-            }
-        }
-        List<String> answerHtml = Optional.ofNullable(question.getAnswerHtml())
-                .orElseGet(List::of);
-        if (answerIndex < answerHtml.size()) {
-            collectStructuredTokens("answer", answerHtml.get(answerIndex), tokens);
-        }
-        if (tokens.isEmpty()) {
-            return null;
-        }
-        tokens.sort(String::compareTo);
-        return sha256(String.join("\n", tokens).getBytes(StandardCharsets.UTF_8));
-    }
-
     private void enrichCorrectAnswerIdentity(ParsedTestQuestionDto question) {
         List<String> normalizedCorrectAnswers = Optional.ofNullable(
                 question.getNormalizedCorrectAnswers()).orElseGet(List::of);
@@ -348,7 +241,8 @@ public class QuestionAssetFetchService {
         for (int index = 0; index < normalizedCorrectAnswers.size(); index++) {
             String normalizedAnswer = normalizedCorrectAnswers.get(index);
             String contentFingerprint = index < correctIndices.size()
-                    ? answerContentFingerprint(question, correctIndices.get(index))
+                    ? QuestionContentFingerprintUtils.answerContentFingerprint(
+                            question, correctIndices.get(index))
                     : null;
             enriched.add(contentFingerprint == null
                     ? normalizedAnswer
@@ -356,18 +250,6 @@ public class QuestionAssetFetchService {
         }
         question.setNormalizedCorrectAnswers(List.copyOf(enriched));
         question.setNormalizedCorrectAnswer(String.join(" | ", enriched));
-    }
-
-    private void collectStructuredTokens(
-            String prefix, String html, List<String> tokens) {
-        if (html == null || html.isBlank()) {
-            return;
-        }
-        Document document = Jsoup.parseBodyFragment(html);
-        document.select(".math-tex[data-tex]").forEach(element ->
-                tokens.add(prefix + ":math:" + element.attr("data-tex").trim()));
-        document.select("table, math, svg").forEach(element ->
-                tokens.add(prefix + ":structure:" + compact(element.outerHtml())));
     }
 
     private RequestContext requestContext(WebDriver driver) {
@@ -480,10 +362,6 @@ public class QuestionAssetFetchService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is unavailable", e);
         }
-    }
-
-    private String compact(String value) {
-        return value.replaceAll("\\s+", " ").trim();
     }
 
     private String shortMessage(Exception exception) {

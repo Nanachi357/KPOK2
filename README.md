@@ -115,6 +115,7 @@ This repository contains the application source code only; it does not publish a
 
 6. **Safe Data Import**
    - Validates `kpok2-question-export-v1` documents before any database mutation
+   - Recomputes canonical, revision, and answer-key hashes from normalized and rich content instead of trusting imported identity fields
    - Shows a read-only preview with counts and compatibility warnings
    - Atomically merges canonical questions, revisions, answer keys, origins, observations, and attempt history
    - Matches stable hashes and source identities so importing the same file repeatedly does not create duplicates

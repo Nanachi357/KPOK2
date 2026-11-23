@@ -3,6 +3,7 @@ package com.myprojects.kpok2.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.myprojects.kpok2.model.QuestionType;
 import com.myprojects.kpok2.model.dto.export.QuestionExportDocument;
+import com.myprojects.kpok2.service.mapper.TestQuestionMapperUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -90,6 +91,126 @@ public class QuestionImportServiceTest {
     }
 
     @Test
+    void rejectsWellFormedButForgedIdentityHashes() {
+        QuestionExportDocument valid = validDocument();
+        var source = valid.questions().get(0);
+        var forged = new QuestionExportDocument.ExportQuestion(
+                source.id(),
+                "f".repeat(32),
+                source.questionText(),
+                source.normalizedText(),
+                source.contextText(),
+                source.normalizedContext(),
+                source.normalizationVersion(),
+                source.questionType(),
+                source.parsedAt(),
+                source.origins(),
+                source.revisions());
+        QuestionExportDocument document = new QuestionExportDocument(
+                valid.schemaVersion(),
+                valid.generatedAt(),
+                valid.filters(),
+                valid.summary(),
+                List.of(forged),
+                valid.attempts());
+
+        QuestionImportValidationException error = assertThrows(
+                QuestionImportValidationException.class,
+                () -> service.inspect(document));
+
+        assertTrue(error.getErrors().stream()
+                .anyMatch(message -> message.contains("questionHash does not match")));
+    }
+
+    @Test
+    void rejectsForgedRevisionAndAnswerKeyHashes() {
+        QuestionExportDocument valid = validDocument();
+        var sourceQuestion = valid.questions().get(0);
+        var sourceRevision = sourceQuestion.revisions().get(0);
+        var sourceKey = sourceRevision.answerKeys().get(0);
+        var forgedKey = new QuestionExportDocument.ExportAnswerKey(
+                sourceKey.id(),
+                "d".repeat(32),
+                sourceKey.correctAnswers(),
+                sourceKey.normalizedCorrectAnswers(),
+                sourceKey.firstSeenAt(),
+                sourceKey.lastSeenAt(),
+                sourceKey.observations());
+        var forgedRevision = new QuestionExportDocument.ExportRevision(
+                sourceRevision.id(),
+                "e".repeat(32),
+                sourceRevision.contextText(),
+                sourceRevision.questionText(),
+                sourceRevision.contextHtml(),
+                sourceRevision.questionHtml(),
+                sourceRevision.answers(),
+                sourceRevision.normalizedAnswers(),
+                sourceRevision.answerHtml(),
+                sourceRevision.questionType(),
+                sourceRevision.firstSeenAt(),
+                sourceRevision.lastSeenAt(),
+                sourceRevision.answerKeyConflict(),
+                List.of(forgedKey),
+                sourceRevision.assets());
+        var question = new QuestionExportDocument.ExportQuestion(
+                sourceQuestion.id(),
+                sourceQuestion.questionHash(),
+                sourceQuestion.questionText(),
+                sourceQuestion.normalizedText(),
+                sourceQuestion.contextText(),
+                sourceQuestion.normalizedContext(),
+                sourceQuestion.normalizationVersion(),
+                sourceQuestion.questionType(),
+                sourceQuestion.parsedAt(),
+                sourceQuestion.origins(),
+                List.of(forgedRevision));
+        QuestionExportDocument document = new QuestionExportDocument(
+                valid.schemaVersion(),
+                valid.generatedAt(),
+                valid.filters(),
+                valid.summary(),
+                List.of(question),
+                valid.attempts());
+
+        QuestionImportValidationException error = assertThrows(
+                QuestionImportValidationException.class,
+                () -> service.inspect(document));
+
+        assertTrue(error.getErrors().stream()
+                .anyMatch(message -> message.contains("revisionHash does not match")));
+        assertTrue(error.getErrors().stream()
+                .anyMatch(message -> message.contains("keyHash does not match")));
+    }
+
+    @Test
+    void rejectsUppercaseHashThatWouldBypassCaseSensitiveDeduplication() {
+        QuestionExportDocument valid = validDocument();
+        var source = valid.questions().get(0);
+        var uppercase = new QuestionExportDocument.ExportQuestion(
+                source.id(),
+                source.questionHash().toUpperCase(java.util.Locale.ROOT),
+                source.questionText(),
+                source.normalizedText(),
+                source.contextText(),
+                source.normalizedContext(),
+                source.normalizationVersion(),
+                source.questionType(),
+                source.parsedAt(),
+                source.origins(),
+                source.revisions());
+        QuestionExportDocument document = new QuestionExportDocument(
+                valid.schemaVersion(),
+                valid.generatedAt(),
+                valid.filters(),
+                valid.summary(),
+                List.of(uppercase),
+                valid.attempts());
+
+        assertThrows(QuestionImportValidationException.class,
+                () -> service.inspect(document));
+    }
+
+    @Test
     void rejectsMalformedAndEmptyFiles() throws Exception {
         Path malformed = tempDir.resolve("malformed.json");
         Files.writeString(malformed, "{not-json");
@@ -106,6 +227,14 @@ public class QuestionImportServiceTest {
 
     public static QuestionExportDocument validDocument() {
         LocalDateTime seenAt = LocalDateTime.of(2026, 11, 17, 12, 0);
+        String questionHash = TestQuestionMapperUtils.generateCanonicalHash(
+                "case", "question");
+        String revisionHash = TestQuestionMapperUtils.generateRevisionHash(
+                questionHash,
+                List.of("alpha", "beta"),
+                QuestionType.SINGLE_CHOICE);
+        String keyHash = TestQuestionMapperUtils.generateAnswerKeyHash(
+                List.of("beta"));
         var observation = new QuestionExportDocument.ExportObservation(
                 40L,
                 173L,
@@ -117,7 +246,7 @@ public class QuestionImportServiceTest {
                 1);
         var key = new QuestionExportDocument.ExportAnswerKey(
                 30L,
-                "c".repeat(64),
+                keyHash,
                 List.of("Beta"),
                 List.of("beta"),
                 seenAt,
@@ -125,7 +254,7 @@ public class QuestionImportServiceTest {
                 List.of(observation));
         var revision = new QuestionExportDocument.ExportRevision(
                 20L,
-                "b".repeat(64),
+                revisionHash,
                 "Case",
                 "Question",
                 "<p>Case</p>",
@@ -148,7 +277,7 @@ public class QuestionImportServiceTest {
                 seenAt);
         var question = new QuestionExportDocument.ExportQuestion(
                 1L,
-                "a".repeat(64),
+                questionHash,
                 "Question",
                 "question",
                 "Case",
