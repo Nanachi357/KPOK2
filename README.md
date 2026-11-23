@@ -185,6 +185,11 @@ The application uses Spring Boot configuration properties. Main settings can be 
    - Uses PostgreSQL as the main database
    - Hibernate schema auto-update for entity management
 
+4. **Local Network Binding**
+   - The embedded API listens on `127.0.0.1` by default and is not exposed to other devices
+   - Docker publishes both the API (`8080`) and PostgreSQL (`5434`) only on the host loopback interface
+   - A direct, non-Docker launch can override the API address with `SERVER_ADDRESS`, but remote exposure should only be enabled together with API authentication and non-default database credentials
+
 > **Note:** Previous versions required manual editing of `application-local.properties` files, but account and navigation settings are now managed through the UI-based configuration system.
 
 ### Running the Application
