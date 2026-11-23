@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.myprojects.kpok2.controller.QuestionBackupDialogController"
+      prefHeight="560.0" prefWidth="700.0" spacing="12">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="%backup.title"
+           style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+    <Label text="%backup.description" wrapText="true"/>
+
+    <Label text="%backup.create.heading"
+           style="-fx-font-weight: bold;"/>
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Button fx:id="createButton" text="%backup.create.button"
+                onAction="#onCreateClick"/>
+        <Label text="%backup.create.note" wrapText="true" HBox.hgrow="ALWAYS"/>
+    </HBox>
+
+    <Label text="%backup.restore.heading"
+           style="-fx-font-weight: bold;"/>
+    <HBox spacing="10" alignment="CENTER_LEFT">
+        <Button fx:id="browseButton" text="%backup.restore.browse"
+                onAction="#onBrowseClick"/>
+        <Label fx:id="selectedFileLabel" wrapText="true" HBox.hgrow="ALWAYS"/>
+    </HBox>
+
+    <TextArea fx:id="previewArea" prefRowCount="13" VBox.vgrow="ALWAYS"/>
+    <Label fx:id="statusLabel" wrapText="true"/>
+
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button fx:id="restoreButton" text="%backup.restore.button"
+                onAction="#onRestoreClick"/>
+        <Button fx:id="closeButton" text="%backup.close"
+                onAction="#onCloseClick"/>
+    </HBox>
+</VBox>

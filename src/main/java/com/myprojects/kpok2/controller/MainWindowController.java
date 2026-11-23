@@ -750,6 +750,29 @@ public class MainWindowController implements TestQuestionService.TestQuestionLis
     }
 
     @FXML
+    public void onBackupRestoreClick() {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/fxml/question-backup.fxml"));
+            loader.setControllerFactory(applicationContext::getBean);
+            loader.setResources(ResourceBundle.getBundle("i18n.messages"));
+
+            Parent root = loader.load();
+            Stage stage = new Stage();
+            stage.setTitle(message("backup.title"));
+            stage.setScene(new Scene(root));
+            stage.initModality(Modality.APPLICATION_MODAL);
+            stage.setResizable(false);
+
+            QuestionBackupDialogController controller = loader.getController();
+            controller.setStage(stage);
+            stage.showAndWait();
+        } catch (Exception e) {
+            log.error("Error opening backup and restore dialog", e);
+        }
+    }
+
+    @FXML
     public void onQuestionLibraryClick() {
         if (questionLibraryStage != null && questionLibraryStage.isShowing()) {
             questionLibraryStage.toFront();

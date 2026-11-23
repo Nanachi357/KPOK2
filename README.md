@@ -117,7 +117,14 @@ This repository contains the application source code only; it does not publish a
    - Matches stable hashes and source identities so importing the same file repeatedly does not create duplicates
    - Ignores source database IDs and reports unsupported image metadata separately
 
-7. **Statistics and Monitoring**
+7. **Portable Backup and Restore**
+   - Creates an unfiltered `kpok2-question-export-v1` backup with complete collection-attempt history
+   - Validates and previews a backup before enabling restore
+   - Rejects filtered exports in the restore workflow so partial datasets cannot be mistaken for full backups
+   - Restores atomically and idempotently by using the same stable identities as the safe import workflow
+   - Never includes or changes TestCenter accounts, passwords, or application settings
+
+8. **Statistics and Monitoring**
    - The system tracks iteration counts, newly added study items, and used accounts
    - Parallel workers reserve attempts from one shared counter, so a finite run cannot exceed its configured total
    - A normal stop finishes active attempts without starting new ones; immediate interruption remains available for emergencies
@@ -202,7 +209,6 @@ mvn spring-boot:run
 - `GET /api/navigation/status` - Return `running`, `stopping-after-current`, `stopping-now`, or `stopped`
 
 ## Development Plans
-- Adding portable backup and restore on top of the JSON transfer format
 - Adding runtime estimates for long collection runs
 - Optimizing parsing performance
 
@@ -216,6 +222,7 @@ The application provides a graphical user interface (JavaFX) with the following 
 - Log display for real-time monitoring
 - Filtered, background JSON export with revision and attempt history
 - Preview-first, background JSON import with an explicit confirmation step
+- Full backup and preview-first restore through File → Backup and Restore
 - Menu options for accessing various functions
 
 ### Account Management
