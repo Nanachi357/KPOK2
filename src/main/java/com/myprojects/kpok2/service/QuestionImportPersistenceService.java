@@ -17,7 +17,7 @@ import com.myprojects.kpok2.repository.TestQuestionRepository;
 import com.myprojects.kpok2.service.mapper.TestQuestionMapperUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -46,16 +47,30 @@ public class QuestionImportPersistenceService {
     private final QuestionOriginRepository originRepository;
     private final QuestionObservationRepository observationRepository;
     private final CollectionAttemptRepository attemptRepository;
+    private final TransactionTemplate transactionTemplate;
+    private final ReentrantLock importLock = new ReentrantLock(true);
 
-    @Transactional
     public QuestionImportResult importFile(Path source) throws IOException {
-        return merge(importService.read(source).document());
+        return mergeAtomically(importService.read(source).document());
     }
 
-    @Transactional
     public QuestionImportResult importDocument(QuestionExportDocument document) {
         importService.inspect(document);
-        return merge(document);
+        return mergeAtomically(document);
+    }
+
+    private QuestionImportResult mergeAtomically(QuestionExportDocument document) {
+        importLock.lock();
+        try {
+            QuestionImportResult result = transactionTemplate.execute(
+                    ignored -> merge(document));
+            if (result == null) {
+                throw new IllegalStateException("Question import transaction returned no result");
+            }
+            return result;
+        } finally {
+            importLock.unlock();
+        }
     }
 
     private QuestionImportResult merge(QuestionExportDocument document) {

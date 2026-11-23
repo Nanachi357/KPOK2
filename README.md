@@ -117,6 +117,7 @@ This repository contains the application source code only; it does not publish a
    - Validates `kpok2-question-export-v1` documents before any database mutation
    - Recomputes canonical, revision, and answer-key hashes from normalized and rich content instead of trusting imported identity fields
    - Limits REST import bodies to 25 MiB by default before JSON materialization; `KPOK2_API_IMPORT_MAX_BYTES` can override the limit
+   - Serializes database mutation through transaction completion so simultaneous identical imports remain idempotent instead of racing on unique keys
    - Shows a read-only preview with counts and compatibility warnings
    - Atomically merges canonical questions, revisions, answer keys, origins, observations, and attempt history
    - Matches stable hashes and source identities so importing the same file repeatedly does not create duplicates

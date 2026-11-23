@@ -6,6 +6,7 @@ import com.myprojects.kpok2.model.QuestionObservation;
 import com.myprojects.kpok2.model.QuestionOrigin;
 import com.myprojects.kpok2.model.QuestionRevision;
 import com.myprojects.kpok2.model.TestQuestion;
+import com.myprojects.kpok2.model.dto.export.QuestionExportDocument;
 import com.myprojects.kpok2.repository.AnswerKeyRepository;
 import com.myprojects.kpok2.repository.CollectionAttemptRepository;
 import com.myprojects.kpok2.repository.QuestionObservationRepository;
@@ -13,10 +14,20 @@ import com.myprojects.kpok2.repository.QuestionOriginRepository;
 import com.myprojects.kpok2.repository.QuestionRevisionRepository;
 import com.myprojects.kpok2.repository.TestQuestionRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -62,6 +73,75 @@ class QuestionImportPersistenceServiceTest {
         assertEquals(1, result.attemptsMerged());
     }
 
+    @Test
+    void serializesConcurrentImportsThroughTransactionCompletion() throws Exception {
+        QuestionImportService importService = mock(QuestionImportService.class);
+        TransactionTemplate transactions = mock(TransactionTemplate.class);
+        var document = emptyDocument();
+        when(importService.inspect(document)).thenReturn(null);
+        AtomicInteger activeTransactions = new AtomicInteger();
+        AtomicInteger maximumActiveTransactions = new AtomicInteger();
+        when(transactions.execute(any())).thenAnswer(invocation -> {
+            int active = activeTransactions.incrementAndGet();
+            maximumActiveTransactions.accumulateAndGet(active, Math::max);
+            try {
+                @SuppressWarnings("unchecked")
+                org.springframework.transaction.support.TransactionCallback<Object> callback =
+                        invocation.getArgument(0);
+                Object result = callback.doInTransaction(mock(TransactionStatus.class));
+                Thread.sleep(20);
+                return result;
+            } finally {
+                activeTransactions.decrementAndGet();
+            }
+        });
+        QuestionImportPersistenceService service = new QuestionImportPersistenceService(
+                importService,
+                mock(TestQuestionRepository.class),
+                mock(QuestionRevisionRepository.class),
+                mock(AnswerKeyRepository.class),
+                mock(QuestionOriginRepository.class),
+                mock(QuestionObservationRepository.class),
+                mock(CollectionAttemptRepository.class),
+                transactions);
+        int requestCount = 20;
+        CountDownLatch ready = new CountDownLatch(requestCount);
+        CountDownLatch start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(requestCount);
+        List<Future<?>> futures = new ArrayList<>();
+        try {
+            for (int index = 0; index < requestCount; index++) {
+                futures.add(executor.submit(() -> {
+                    ready.countDown();
+                    assertTrue(start.await(5, TimeUnit.SECONDS));
+                    return service.importDocument(document);
+                }));
+            }
+            assertTrue(ready.await(5, TimeUnit.SECONDS));
+            start.countDown();
+            for (Future<?> future : futures) {
+                future.get(10, TimeUnit.SECONDS);
+            }
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+
+        assertEquals(1, maximumActiveTransactions.get());
+    }
+
+    private QuestionExportDocument emptyDocument() {
+        return new QuestionExportDocument(
+                QuestionExportDocument.CURRENT_SCHEMA_VERSION,
+                Instant.parse("2026-11-23T18:00:00Z"),
+                new QuestionExportDocument.ExportFilter(
+                        List.of(), List.of(), List.of(), false, true, ""),
+                new QuestionExportDocument.ExportSummary(
+                        0, 0, 0, 0, 0, 0, 0, 0),
+                List.of(),
+                List.of());
+    }
+
     private Fixture fixture() {
         QuestionImportService importService = mock(QuestionImportService.class);
         TestQuestionRepository questions = mock(TestQuestionRepository.class);
@@ -73,6 +153,7 @@ class QuestionImportPersistenceServiceTest {
                 QuestionObservationRepository.class);
         CollectionAttemptRepository attempts = mock(
                 CollectionAttemptRepository.class);
+        TransactionTemplate transactions = immediateTransactions();
         var document = QuestionImportServiceTest.validDocument();
         when(importService.inspect(document)).thenReturn(null);
         return new Fixture(
@@ -83,13 +164,25 @@ class QuestionImportPersistenceServiceTest {
                         keys,
                         origins,
                         observations,
-                        attempts),
+                        attempts,
+                        transactions),
                 questions,
                 revisions,
                 keys,
                 origins,
                 observations,
                 attempts);
+    }
+
+    private TransactionTemplate immediateTransactions() {
+        TransactionTemplate transactions = mock(TransactionTemplate.class);
+        when(transactions.execute(any())).thenAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            org.springframework.transaction.support.TransactionCallback<Object> callback =
+                    invocation.getArgument(0);
+            return callback.doInTransaction(mock(TransactionStatus.class));
+        });
+        return transactions;
     }
 
     private record Fixture(

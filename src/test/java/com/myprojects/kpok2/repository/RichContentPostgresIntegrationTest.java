@@ -35,6 +35,8 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.time.LocalDateTime;
 import java.nio.file.Files;
@@ -88,6 +90,9 @@ class RichContentPostgresIntegrationTest {
 
     @Autowired
     private QuestionOriginRepository originRepository;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Autowired
     private CollectionAttemptRepository attemptRepository;
@@ -277,7 +282,8 @@ class RichContentPostgresIntegrationTest {
                 answerKeyRepository,
                 originRepository,
                 observationRepository,
-                attemptRepository)
+                attemptRepository,
+                new TransactionTemplate(transactionManager))
                 .importDocument(document);
 
         assertEquals(QuestionExportDocument.CURRENT_SCHEMA_VERSION,
